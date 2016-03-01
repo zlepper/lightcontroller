@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html ng-app="lightcontroller" ng-controller="TestController as test">
 <head>
-	<title>Test</title>
+	<meta charset="UTF-8">
+	<title>Lysstyrer</title>
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<link rel="stylesheet" href="/bundle.css">
+	<script src="/bundle.js"></script>
 </head>
 <body>
-<h1>I loaded from the PI</h1>
+	<div class="md-content">
+		<md-button ng-click="test.toggle()" ng-class="{'md-raised': test.state}">Click me!</md-button>
+	</div>
 </body>
 </html>

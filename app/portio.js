@@ -14,6 +14,10 @@ var controllers = {
 	0: 1
 }
 
+var lightStates = {
+	0: false
+}
+
 function doStuff() {
 	console.log("Port 7 values changed. This means that microcontroller would like to tell us something. So we should probably listen to that");
 }
@@ -25,9 +29,17 @@ inputWatch.watch(function(err, value) {
 	}
 });
 
-exports.set = function(controller, value, cb) {
+function set(controller, value, cb) {
 	var ctrl = new GPIO(iomap[0], "out");
 	ctrl.write(value, function(err) {
 		cb(err, value);
 	});	
+}
+
+exports.set = set;
+	
+exports.toggle = function(controller, cb) {
+	var newState = lightStates[controller];
+	set(controller, newState ? 1 : 0, cb);
+	lightStates[controller] = !newState;
 }

@@ -68,6 +68,6 @@ gulp.task('build-js', function () {
 /* Watch these files for changes and run the task on update */
 gulp.task('watch', function () {
     "use strict";
-    gulp.watch(ownScripts, ['jshint', 'build-js']);
+    gulp.watch(ownScripts, [ 'build-js']);
     gulp.watch(input.sass, ['build-css']);
 });

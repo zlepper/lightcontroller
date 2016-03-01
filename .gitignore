@@ -34,3 +34,5 @@ node_modules
 
 # Bower directory
 bower_components/
+
+public/bundle.*
