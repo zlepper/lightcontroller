@@ -1,3 +1,7 @@
+var SerialPort = require("serialport").SerialPort
+var serialPort = new SerialPort("/dev/ttyAMA0", {
+	  baudrate: 9200
+}, false);
 var GPIO = require("onoff").Gpio;
 var iomap = {
 	0: 2,
@@ -35,6 +39,20 @@ function set(controller, value, cb) {
 		cb(err, value);
 	});	
 }
+
+serialPort.open(function(error) {
+	if(error) {
+		return console.log(error);
+	}
+	console.log("Serial port open");
+	serialPort.on("data", function(data) {
+		console.log("Data recieved: " + data);
+	});
+	serialPort.write(255, function(err, result) {
+		console.log("err " + err);
+		console.log("results " + result);
+	});
+});
 
 exports.set = set;
 	
