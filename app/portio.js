@@ -1,8 +1,12 @@
-var SerialPort = require("serialport").SerialPort
-var serialPort = new SerialPort("/dev/ttyAMA0", {
-	  baudrate: 9200
-}, false);
 var GPIO = require("onoff").Gpio;
+
+// Contains the queue of characters to write
+var queue = [];
+var actionQueue = [];
+var writerInteval = null;
+
+
+// Dictionary that descripes what pin maps to what bit
 var iomap = {
 	0: 2,
 	1: 3,
@@ -14,50 +18,76 @@ var iomap = {
 	7: 27
 }
 
-var controllers = {
-	0: 1
+function getWriteablePin(index) {
+	return new GPIO(iomap[index], "in");
 }
 
-var lightStates = {
-	0: false
+function writePin(index, value, cb) {
+	var pin = getWriteablePin(index);
+	pin.write(value, cb);
 }
 
-function doStuff() {
-	console.log("Port 7 values changed. This means that microcontroller would like to tell us something. So we should probably listen to that");
+function setPorts(bits) {
+	// Iterate over all the values
+	for(var i = 0; i < bits.length; i++) {
+		// Get the value
+		var bit = bits[i];
+		// Set the pin to the selected value
+		writePin(i, bit);			
+	}	
 }
 
-var inputWatch = new GPIO(iomap[7], "in");
-inputWatch.watch(function(err, value) {
-	if(value) {
-		doStuff();
+function intToBinary(g) {
+	// Avoid writing numbers bigger than 8 bit
+	if(g > 255) {
+		g = 255;
 	}
-});
-
-function set(controller, value, cb) {
-	var ctrl = new GPIO(iomap[0], "out");
-	ctrl.write(value, function(err) {
-		cb(err, value);
-	});	
-}
-
-serialPort.open(function(error) {
-	if(error) {
-		return console.log(error);
+	// Convert the number into a binary list
+	var temp = g.toString(2);
+	var bin = [];
+	for(var i = 0; i < temp.length; i++) {
+		bin.push(Number(temp[i]));		
 	}
-	console.log("Serial port open");
-	serialPort.on("data", function(data) {
-		console.log("Data recieved: " + data);
-	});
-	serialPort.write(255, function(err, result) {
-		console.log("err " + err);
-		console.log("results " + result);
-	});
-});
-
-exports.set = set;
-	
-exports.toggle = function(controller, cb) {
-	var newState = lightStates[controller];
-	set(controller, newState ? 1 : 0, cb);
-	lightStates[controller] = !newState;
+	while(bin.length < 8) {
+		bin.unshift(0);	
+	}
+	return bin;
 }
+
+function write() {
+	var character = queue.shift();
+	var bin = intToBinary(character);		
+	setPorts(bin);
+	// If there is no more in the queue, then just stop sending stuff
+	if(queue.length === 0) {
+		clearInterval(writerInterval);
+	}	
+}
+
+function startWriting() {
+	// Only create a new interval if it doesn't already exist
+	if(!writerInterval && queue.length) {
+		// Create a new interval to write data
+		writerInterval = setInterval(write, 1);
+	}
+}
+
+function queueString(s) {
+	// push the characters into the queue
+	for(var i = 0; i < s.length; i++) {
+		queue.push(s.charCodeAt(i));
+	}
+	// Start the queue if it is not started already
+	startWriting();
+}
+
+function queueNumber(number) {
+	// If the number is too big, don't do anything
+	if(number > 254) {
+		return;
+	}
+	queue.push(number);
+}
+
+exports.queueString = queueString;
+exports.queueNumber = queueNumber;

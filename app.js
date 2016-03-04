@@ -1,7 +1,7 @@
 var express = require("express");
 var path = require("path");
 var app = express();
-var portIO = require("./app/portio");
+var portIO = require("./app/controller-action");
 var bodyParser = require("body-parser");
 app.use(express.static("public"));
 
@@ -26,14 +26,9 @@ app.listen(80, function() {
 	console.log("Listering for requests");
 });
 
-//var n = 1;
-//////var intervaller = setInterval(function() {
-	//portIO.set(0, n, function(err, value) {
-		//if(err) return console.log(err, value);
-	//});
-	//if(n)
-		//n = 0;
-	//else
-		//n = 1;
-
-//}, 2000); 
+n = 0;
+setTimeout(function() {
+	portIO.sendNumber(1, n);
+	console.log(n);
+	n++;
+}, 1000);
