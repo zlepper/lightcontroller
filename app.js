@@ -3,6 +3,7 @@ var path = require("path");
 var app = express();
 var portIO = require("./app/controller-action");
 var bodyParser = require("body-parser");
+var routes = require("./app/routes/toggles");
 app.use(express.static("public"));
 
 var indexFile = path.join(__dirname, "public", "index.html");
@@ -18,6 +19,8 @@ app.post("/api/toggle", function(req, res) {
 	});
 });
 
+app.use("/api", routes);
+
 app.get('/*', function (req, res) {
     res.sendFile(indexFile);
 });
@@ -27,8 +30,14 @@ app.listen(80, function() {
 });
 
 n = 0;
-setTimeout(function() {
+portIO.addController();
+/*setInterval(function() {
 	portIO.sendNumber(1, n);
 	console.log(n);
 	n++;
-}, 1000);
+	if(n >= 255) {
+		n = 0;
+	} 
+
+}, 10000);*/
+//portIO.sendNumber(1,1);

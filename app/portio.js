@@ -3,7 +3,7 @@ var GPIO = require("onoff").Gpio;
 // Contains the queue of characters to write
 var queue = [];
 var actionQueue = [];
-var writerInteval = null;
+var writerInterval = null;
 
 
 // Dictionary that descripes what pin maps to what bit
@@ -19,17 +19,20 @@ var iomap = {
 }
 
 function getWriteablePin(index) {
-	return new GPIO(iomap[index], "in");
+	return new GPIO(iomap[index], "out");
 }
 
-function writePin(index, value, cb) {
+function writePin(index, value) {
 	var pin = getWriteablePin(index);
-	pin.write(value, cb);
+	pin.write(value, function(err) {
+		if(err) return console.log(err);	 
+	});
 }
 
 function setPorts(bits) {
+	console.log(bits);
 	// Iterate over all the values
-	for(var i = 0; i < bits.length; i++) {
+	for(var i = 0; i < 8; i++) {
 		// Get the value
 		var bit = bits[i];
 		// Set the pin to the selected value
@@ -37,53 +40,47 @@ function setPorts(bits) {
 	}	
 }
 
+function byteString(n) {
+	if (n < 0 || n > 255 || n % 1 !== 0) {
+		throw new Error(n + " does not fit in a byte");
+	}
+	return ("000000000" + n.toString(2)).substr(-8)
+}
 function intToBinary(g) {
-	// Avoid writing numbers bigger than 8 bit
-	if(g > 255) {
-		g = 255;
-	}
-	// Convert the number into a binary list
-	var temp = g.toString(2);
-	var bin = [];
-	for(var i = 0; i < temp.length; i++) {
-		bin.push(Number(temp[i]));		
-	}
-	while(bin.length < 8) {
-		bin.unshift(0);	
+	bin = [];
+	bits = byteString(g);
+	for(var i = 0; i < 8; i++) {
+		bin.push(Number(bits[i]));
 	}
 	return bin;
 }
 
 function write() {
-	var character = queue.shift();
-	var bin = intToBinary(character);		
-	setPorts(bin);
-	// If there is no more in the queue, then just stop sending stuff
-	if(queue.length === 0) {
-		clearInterval(writerInterval);
-	}	
+	if(queue.length) {
+		var character = queue.shift();
+		var bin = intToBinary(character);
+		setPorts(bin);
+	}
+	return;
 }
 
-function startWriting() {
-	// Only create a new interval if it doesn't already exist
-	if(!writerInterval && queue.length) {
-		// Create a new interval to write data
-		writerInterval = setInterval(write, 1);
-	}
-}
+
+// Create a new interval to write data
+writerInterval = setInterval(function() {
+	//console.log("TEST");
+	write();
+}, 1000);
 
 function queueString(s) {
 	// push the characters into the queue
 	for(var i = 0; i < s.length; i++) {
 		queue.push(s.charCodeAt(i));
 	}
-	// Start the queue if it is not started already
-	startWriting();
 }
 
 function queueNumber(number) {
 	// If the number is too big, don't do anything
-	if(number > 254) {
+	if(number > 255) {
 		return;
 	}
 	queue.push(number);
