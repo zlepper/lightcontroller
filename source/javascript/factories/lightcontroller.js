@@ -18,7 +18,7 @@
 			return $http.put(switchBase  + "/"+ controllerNumber + "/" + power, {});
 		}
 		this.getSwitches = function() {
-			return $http.put(switchBase, {}); 
+			return $http.get(switchBase, {}); 
 		}
 	};
 

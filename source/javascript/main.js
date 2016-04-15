@@ -1,4 +1,5 @@
 angular.module("lightcontroller", ["ngMaterial", "ui.router", "ngAnimate", "ngMessages"]).controller("MainController", ["LightController", function(lightController) {
+		var cont = this;
 	this.controllers = [];
 	this.toggle = function(controller) {
 		resProm = lightController.toggle(controller.id);
@@ -50,6 +51,10 @@ angular.module("lightcontroller", ["ngMaterial", "ui.router", "ngAnimate", "ngMe
 			console.log("got \n" + result);  
 		});
 	}
+	this.getLightColor = function(controller) {
+		var color =  "rgb(" + controller.power + "," + controller.power + ",0)";
+		return color;
+	}
 	var fakeId = 1;
 	this.createFakeController = function() {
 		var c = {
@@ -61,6 +66,18 @@ angular.module("lightcontroller", ["ngMaterial", "ui.router", "ngAnimate", "ngMe
 		}
 		this.controllers.push(c);
 	}
+	this.getControllers = function() {
+		var p = lightController.getSwitches();
+		//console.log(this.controllers);
+		p.then(function(r) {
+			//console.log(r);
+			//console.log(cont.controllers);
+			cont.controllers = r.data;
+		}, function(err) {
+			console.log(err);					 
+		})
+	}
+	this.getControllers();
 }]).directive('dragEnd', function() {
 	return {
 		restrict: 'A',
