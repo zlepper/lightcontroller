@@ -1,22 +1,59 @@
 var SerialPort = require("serialport").SerialPort;
-var port = new SerialPort("/dev/ttyAMA0", {baudrate: 9600});
+var port = new SerialPort("/dev/ttyAMA0", {baudRate: 9600});
 
 function init() {
-	port.on("open", function() {
-		queue = function(b) {
-			port.write(b);
-		}
-		while(initQueue.length) {
-			queue(initQueue.shift);
-		}
-	});	
+		port.on("open", function() {
+				ready = true;
+				if(initQueue.length) {
+				write();
+				}
+				port.on("data", function(data) {
+					console.log("Got data");
+					console.log(data);
+				});
+				port.on("error", function(error) {
+					console.log(error);
+				});
+		});	
 }
 init();
-
+ready = true;
+writing = false;
 initQueue = [];
 var queue = function(b) {
-	initQueue.push(b);
+		initQueue.push(b);
+		if(ready && !writing) {
+				write();
+		}
 }
+
+var write = function() {
+		writing = true;
+		b = initQueue.shift();
+		console.log(b);
+		port.write(b, function(err, bytesWritten) {
+				if(err) {
+					console.log(err);
+				}
+				port.drain(function(err) {
+						//setTimeout(function() {
+						console.log("Done writing");
+						console.log(b);
+						if(err) {
+								console.log(err);
+						}			
+						if(initQueue.length) {
+								write();
+						} else {
+								writing = false;
+						}
+						//}, 1);
+				});
+				console.log(bytesWritten);		
+		});
+}
+
+
 
 function queueString(s) {
 		// push the characters into the queue
