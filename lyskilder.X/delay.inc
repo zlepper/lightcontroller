@@ -1,7 +1,7 @@
 ;**** FIL OPLYSNINGER ******************************************************************
-;	Fil:		delay.inc
-;	Dato:		16.04.2016
-;	forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
+;   Fil:	delay.inc
+;   Dato:	16.04.2016
+;   Forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
 
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
@@ -25,7 +25,7 @@ LOOP1	INCFSZ	Delay1,F
 	INCFSZ	Delay2,F
 	GOTO	LOOP1
 ; -------  Slut på 1 millisekund delay rutine ---------------------------------------------
-    
+	
     RETURN
 
 ; ******* PROGRAM AFSLUTTET ***************************************************************
