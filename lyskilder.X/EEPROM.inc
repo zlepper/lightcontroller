@@ -12,30 +12,36 @@
 ; -------- Skriv data til EEPROM ---------------------------------------------------------
     ; Se side 113 i databladet for mere information om skrvning til EEPROM
 EEPROM_WRITE
-    BANKSEL NVMCON1
-    CHECK_READY BTFSC NVMCON1,WR ; Tjek om EEPROM er klar til at blive skrevet til
-	GOTO CHECK_READY
-	
+    
     ; Set the NVMREGS and WREN bits of the NVMCON1 register
+    BANKSEL NVMCON1
     BSF NVMCON1,NVMREGS
     BSF NVMCON1,WREN
-	
-    ; Data givet i hovedprogram (LYSNR 1)
-    BANKSEL NVMDATH ; Gå til bank
-    MOVLW B'00000100' ; Flyt de mest betydelige bits i dataen
-    MOVWF NVMDATH ; til NVMDATH
     
+    BANKSEL NVMDATH ; Gå til bank
+    MOVLW B'00000' ; Flyt de mest betydelige bits i dataen
+    MOVWF NVMDATH ; til NVMDATL
+    
+    BANKSEL EEPROM_DATA
+    MOVF EEPROM_DATA,W
     BANKSEL NVMDATL ; Gå til bank
-    MOVLW B'00000000' ; Flyt de mindst betydelige bits i dataen
-    MOVWF NVMDATL ; til NVMDATL
+    MOVWF NVMDATL ; til NVMDATH
+    
+    BANKSEL EEPROM_DATA ; Gå til bank
+    CLRF EEPROM_DATA ; Ryd dataen, da den er blevet anvendt
     
     BANKSEL NVMADRH ; Gå til bank
-    MOVLW 0xFF ; Flyt de mest betydelige bits i adressen
+    MOVLW B'11100' ; Flyt de mest betydelige bits i adressen (Over 7000)
     MOVWF NVMADRH ; til NVMADRH
     
+    BANKSEL EEPROM_ADRESSE
+    MOVF EEPROM_ADRESSE,W ; Flyt de mest betydelige bits i adressen
+    
     BANKSEL NVMADRL ; Gå til bank
-     MOVLW 0x70 ; Flyt de mindst betydelige bits i adressen
     MOVWF NVMADRL ; til NVMADRL
+    
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    CLRF EEPROM_ADRESSE ; Ryd dataen, da den er blevet anvendt
     
 ;   Følgende kode er krævet EEPROM sekvens (Se side 112 i databladet)
     BANKSEL NVMCON1
@@ -45,15 +51,48 @@ EEPROM_WRITE
     MOVWF NVMCON2 ; Step 1: Load 0x55 into NVMCON2
     MOVLW 0xAA ; Step 2: Load W with 0xAA
     MOVWF NVMCON2 ; Step 3: Load AAh into NVMCON2
-    BSF NVMCON1,WR ; Step 4: Set WR bit to begin write/erase
+    BSF NVMCON1,WR ; Step 4: Set WR bit to begin write
     BSF INTCON,GIE ; Re-enable interrupts
-	
+    
+    BANKSEL NVMCON1 ; Gå til bank
+ ;   BCF PIR2,NVMIF ; Ryd flaget, så den ikke indikerer tidligere skrivning til EEPROM TODO
+    CALL WAIT_ON_EEPROM ; Vent på, at den er færdig med at skrive til EEPROM
+    
     RETURN ; Skrivning til EEPROM er færdig, vend tilbage til hovedprogram
-
+    
+EEPROM_READ
+    ; Set the NVMREGS and WREN bits of the NVMCON1 register
+    BANKSEL NVMCON1
+    BSF NVMCON1,NVMREGS
+    BSF NVMCON1,WREN
+    
+    BANKSEL NVMADRH ; Gå til bank
+    MOVLW B'11100' ; Flyt de mest betydelige bits i adressen (Over 7000)
+    MOVWF NVMADRH ; til NVMADRL
+    
+    BANKSEL EEPROM_ADRESSE
+    MOVF EEPROM_ADRESSE,W
+ 
+    BANKSEL NVMADRL ; Gå til bank
+    MOVWF NVMADRL ; til NVMADRH
+    
+    BANKSEL NVMCON1
+    BSF	NVMCON1,RD
+    
+    BANKSEL NVMDATL
+    MOVF NVMDATL,W
+    BANKSEL EEPROM_DATA
+    MOVWF EEPROM_DATA
+    
+    CLRF EEPROM_ADRESSE
+    
+    RETURN
+		
+WAIT_ON_EEPROM
+    BTFSC NVMCON1,WR ; Gå ud af loop når den er færdig med at skrive til EEPROM
+	GOTO WAIT_ON_EEPROM ; Vent indtil den er færdig
+    BCF NVMCON1,WREN ; Ryd WREN for at indikere, at vi er færdig med at skrive til EEPROM
+    RETURN ; Returnér
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
-
-
-
-
 
 

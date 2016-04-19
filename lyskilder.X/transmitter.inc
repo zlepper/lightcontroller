@@ -45,6 +45,7 @@ TRANSMIT_TO_RPI
     
     CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med at transmittere
     
+    BANKSEL SEND_DATA ; Gå til bank
     CLRF SEND_DATA ; Vi rydder SEND_DATA, da dataen er blevet sendt
     RETURN ; Returnér når den er færdig med at transmittere
     

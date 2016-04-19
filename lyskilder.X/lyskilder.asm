@@ -21,8 +21,8 @@
 	
 	; CONFIG1
 	__CONFIG _CONFIG1, _FEXTOSC_OFF & _RSTOSC_HFINT32 & _CLKOUTEN_OFF & _CSWEN_ON & _FCMEN_ON
-	; CONFIG2
-	 __CONFIG _CONFIG2, _MCLRE_ON & _PWRTE_OFF & _WDTE_OFF & _LPBOREN_OFF & _BOREN_ON & _BORV_LOW & _PPS1WAY_ON & _STVREN_ON & _DEBUG_OFF
+	; CONFIG2 TODO: PRØV AT SÆTTE PWERTE ON
+	 __CONFIG _CONFIG2, _MCLRE_ON & _PWRTE_ON & _WDTE_OFF & _LPBOREN_OFF & _BOREN_ON & _BORV_LOW & _PPS1WAY_ON & _STVREN_ON & _DEBUG_OFF
 	; CONFIG3
 	__CONFIG _CONFIG3, _WRT_OFF & _LVP_OFF
 	; CONFIG4
@@ -34,6 +34,9 @@
 	STOP_SERIEL	EQU 0x22    ; Stop register til seriel kommunikation
 	MODTAGET_DATA	EQU 0x23    ; Definer register til lagring af modtaget data
 	SEND_DATA	EQU 0x24    ; Definér regiter til lagring af data der skal sendes til RPI
+	EEPROM_ADRESSE	EQU 0x25    ; Definér register til lagring af ønsket EEPROM adresse
+	EEPROM_DATA	EQU 0x26    ; Definér register til lagring af ønkset skrevet data til EEPROM
+	
 ; ******* OPSÆTNING AF PROGRAM POINTERE ***************************************************
     org		0x0000				; Programstart efter et reset
     GOTO	init				; Gå til opsætning
@@ -90,15 +93,18 @@ init
 ; ******* PINS DEFINERING TIL BLA. SERIEL KOMMUNIKATION ************************************
     BANKSEL TRISA   ; Sæt bank til hvor TRISA befinder sig
     BCF TRISA,4 ; TODO SLET
+    BSF TRISA,3	    ; Sæt op til input fra knap
+    ;BSF TRISA,4    ; Sæt op til AV-konvetering fra potentiometer TODO
     BSF TRISA,0	    ; Sæt op til RX (Seriel kommunikation)
     BSF TRISA,1	    ; Sæt op til TX (Seriel komunikation)
     
 ; ******* PULS-BREDDE MODULATION ***********************************************************
     
     ; Sæt oscillatoren
+    ; TODO SLET ALT DETTE!
     ; Vi vælger HFINTOSC (High-Frequency Internal  Oscillator), for at få 32 MHz i configuration 
     ;BANKSEL OSCFRQ ; HFINTOSC FREQUENCY SELECTION REGISTER
-    ;MOVLW B'00000100'
+    ;MOVLW B'00000100' 
     ;MOVWF OSCFRQ ; Vi omdanner MHz fra 32 til 8 MHz
     
     BANKSEL TRISA ; Set bank
@@ -153,7 +159,7 @@ init
     CLRW ; Clear arbejdsregistret
     
     ; Sæt lysnr til lyskilde
-    MOVLW 0x01 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere) TODO ændre til 0 
+    MOVLW 0x01 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere) TODO
     BANKSEL LYSNR ; Gå til bank
     MOVWF LYSNR ; Flyt til bank
     CLRW ; Clear arbejdsregistret
@@ -176,6 +182,20 @@ init
     MOVWF SEND_DATA ; Flyt til bank
     CLRW ; Clear arbejdsregistret
     
+    ; Sæt EEPROM data registret til nul
+    MOVLW 0x00 ; Sæt egne definerede registre til 0
+    BANKSEL EEPROM_DATA ; Gå til bank
+    MOVWF EEPROM_DATA ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+    
+    ; Sæt EEPROM adresse registret til nul
+    MOVLW 0x00 ; Sæt egne definerede registre til 0
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    MOVWF EEPROM_ADRESSE ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+
+    CALL GET_DATA_FROM_EEPROM ; Ved initialisering henter vi lagret data fra EEPROM
+   
     GOTO MAIN ; Gå til MAIN som tager sig af, hvad lysstyringen skal gøre
 
 ; ******* HOVEDPROGRAM **********************************************************************
@@ -187,17 +207,17 @@ MAIN
     
     BTFSC STATUS,Z ; Hvis dens LYSNR er 0
 	GOTO GET_LYSNR ; Så skal den forespørge RPI'en om et lysnr
-  
+    
     GOTO LYSSTADIE ; Ellers, så skal den gå til check for data 
-   
-; ------- SERIEL RECIPERING AF DATA FRA RASPBERRY PI ---------------------------------------
     
+; ------- SERIEL TRANSMITTERING AF DATA TIL RASPBERRY PI ---------------------------------------
 GET_LYSNR
-    MOVLW D'0' ; Hvis vi sender nul til RPI'en, så skal den sende lyskilden et lysnr
-    BANKSEL SEND_DATA ; Gå til bank
-    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
+    ; TODO
+    ;MOVLW D'0' ; Hvis vi sender nul til RPI'en, så skal den sende lyskilden et lysnr
+    ;BANKSEL SEND_DATA ; Gå til bank
+    ;MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
     
-    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
+    ;CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
     CALL CHECK_FOR_DATA_FROM_RPI ; Modtag  et lysnr'et fra RPI'en
     
     BANKSEL MODTAGET_DATA ; Gå til bank
@@ -205,13 +225,22 @@ GET_LYSNR
     
     BANKSEL LYSNR ; Gå til bank
     MOVWF LYSNR ; Flyt dataen til LYSNR registret
+    
     BANKSEL MODTAGET_DATA ; Gå til bank
     CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er anvendt
     
-    GOTO MAIN ; Gå til MAIN
+    CALL OPDATER_EEPROM ; Opdatér dataen lagret i EEPROM
+   
+    GOTO LYSSTADIE ; Gå til MAIN
     
+; ------- SERIEL RECIPERING AF DATA FRA RASPBERRY PI ---------------------------------------
 LYSSTADIE
+    
     ; Denne del af koden sørger for modtagelse af det ønskede lysstadie fra Raspberry Pi'en
+    ; og tjekker ofte, om knappen er blevet trykket på
+    
+    CALL CHECK_BUTTON ; Tjek om knappen er blevet trykket
+    
     CALL CHECK_FOR_DATA_FROM_RPI ; Tjek om RPI'en har sendt et nyt lysstadie som lyskilden skal køre
     
     BANKSEL MODTAGET_DATA ; Gå til bank
@@ -219,22 +248,139 @@ LYSSTADIE
     
     BANKSEL PWM5DCH ; Gå til bank
     MOVWF PWM5DCH ; Flyt dataen ud på LED ved hjælp af Pulse-bredde modulation
+    
     BANKSEL MODTAGET_DATA ; Gå til bank
     CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er sendt ud til lyset
     
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
+    
+    ;CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO
+    
     GOTO LYSSTADIE ; Bliv ved med at tjekke for nyt lysstadie
-  
+
+; ------- TJEK OM DER ER BLEVET TRYKKET PÅ KNAPPEN ---------------------------------------
+    
+CHECK_BUTTON
+    BTFSS PORTA,3 ; Hvis knappen ikke er trykket
+	RETURN ; Returnér
+    
+    ; Ellers, så skal lysstadiet ændres til det modsatte, og EEPROM og RPI skal opdateres
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVF PWM5DCH,W ; Flyt lysstadie til arbejdsregistret
+    
+    BTFSC STATUS,Z ; Hvis lysstadiet er nul
+	GOTO TOGGLE_LYSSTADIE_ON ; Så skal LED'en tændes
+    GOTO TOGGLE_LYSSTADIE_OFF ; Hvis ikke, så skal den slukkes
+    
+TOGGLE_LYSSTADIE_ON
+    MOVLW 0xFF ; Tænd LED på fuld styrke
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVWF PWM5DCH ; Tænd for LED
+    
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
+    
+    ;CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO
+    
+    GOTO LYSSTADIE ; Gå til tjek for nyt lysstadie
+    
+TOGGLE_LYSSTADIE_OFF
+    MOVLW 0x00 ; Sluk LED
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVWF PWM5DCH ; Flyt ud på LED
+    
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
+    
+    ;CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO
+    
+    GOTO LYSSTADIE ; Gå til tjek for nyt lysstadie
+	
+; ------- HENT DATA FRA EEPROM VED START ---------------------------------------------
+
+GET_DATA_FROM_EEPROM
+    ; Hent LYSNR fra EEPROM
+    MOVLW 0x01 ; Gå til adressen, hvor LYSNR'eret befinder sig
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    
+    CALL EEPROM_READ ; Hent dataen på overstående adresse
+    
+    BANKSEL EEPROM_DATA
+    ;MOVF EEPROM_DATA,W
+    MOVLW 0x01 ; TODO SLET OVERSTÅENDE
+    
+    BANKSEL LYSNR ; Gå til bank
+    MOVWF LYSNR ; Flyt dataen fra EEPRROM til LYSNR register
+    BANKSEL EEPROM_DATA
+    CLRF EEPROM_DATA
+    
+    ; Hent lysstadie fra EEPROM
+    MOVLW 0x02 ; Gå til adressen, hvor LYSNR'eret befinder sig
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    
+    CALL EEPROM_READ ; Hent dataen på overstående adresse
+    
+    BANKSEL EEPROM_DATA
+    MOVF EEPROM_DATA,W
+
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVWF PWM5DCH ; Flyt dataen ud på LED ved hjælp af Pulse-bredde modulation
+    BANKSEL EEPROM_DATA
+    CLRF EEPROM_DATA
+    
+    RETURN ; Returnér
+    
+; ------- OPDATER DATAEN I EEPROM  --------------------------------------------------------
+    
+OPDATER_EEPROM
+    ; Opdater LYSNR
+    MOVLW 0x01 ; Flyt dataen til arbejdsregistret
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    
+    BANKSEL LYSNR ; Gå til bank
+    MOVF LYSNR,W ; Flyt dataen til arbejdsregistret
+    
+    BANKSEL EEPROM_DATA ; Gå til bank
+    MOVWF EEPROM_DATA ; Lagrer dataen i registret
+    
+    CALL EEPROM_WRITE ; Hent dataen på overstående adresse
+    
+    ; Opdater lysstadie
+    MOVLW 0x02 ; Flyt dataen til arbejdsregistret
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVF PWM5DCH,W ; Flyt dataen til arbejdsregistret
+    
+    BANKSEL EEPROM_DATA ; Gå til bank
+    MOVWF EEPROM_DATA ; Lagrer dataen i registret
+    
+    CALL EEPROM_WRITE ; Hent dataen på overstående adresse
+    
+    RETURN ; Returnér
+    
+; ------- OPDATÉR RASPBERRY PI MED LYSNR OG LYSSTADIE ------------------------------------
+OPDATER_RPI
+    ; Opdater lysstadie
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVF PWM5DCH,W ; Flyt LED lysstadie til arbejdsregistret
+    BANKSEL SEND_DATA ; Gå til bank
+    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
+    
+    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
+    
+    RETURN ; Returnér
+    
 ; ------- TEST TEST TEST TEST TEST TEST TEST TEST TEST ------------------------------------
 TEST_DEAD
     BANKSEL PWM5DCH ; Set bank
     MOVLW B'11111111'  ; Beregnet ved hjælp af formel 18-2 side 168
+    MOVWF PWM5DCH 
+    MOVLW B'00000000'
     MOVWF PWM5DCH
-    CALL DELAY2
-    CALL DELAY2
-     BANKSEL PWM5DCH ; Set bank
-    MOVLW B'00000000'  ; Beregnet ved hjælp af formel 18-2 side 168
-    MOVWF PWM5DCH   
-    RETURN
-    
+    GOTO TEST_DEAD
+
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
     END ; Her slutter programmet
