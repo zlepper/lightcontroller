@@ -1,10 +1,14 @@
 ;**** FIL OPLYSNINGER ******************************************************************
-;	Fil:		lyskilder.asm
-;   Dato:		04.04.2016
-;	forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
+;   Fil:	lyskilder.asm
+;   Dato:	04.04.2016
+;   Forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
 
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
+;   Denne fil er hovedfilen til lyskildernes microcontroller. Den sørger for at lyskilderne
+;   har et LYSNR, den serielle kommunikation til og fra Raspberry Pi'en, omdannelse af data
+;   til en spænding ved puls-bredde modulation, omdefinering af pins på microcontrolleren
+;   så den kan bruges så effektiv som muligt i et overskueligt kredsløb.
 
 ; ******* PROCESSOR DEFINITIONER **********************************************************
 	processor	16f18313				;Sets processor
@@ -16,16 +20,12 @@
 ; ******* Configure the PIC *****************************************************
 	
 	; CONFIG1
-	; __config 0xFFFF
 	__CONFIG _CONFIG1, _FEXTOSC_OFF & _RSTOSC_HFINT32 & _CLKOUTEN_OFF & _CSWEN_ON & _FCMEN_ON
 	; CONFIG2
-	; __config 0xFFFF
 	 __CONFIG _CONFIG2, _MCLRE_ON & _PWRTE_OFF & _WDTE_OFF & _LPBOREN_OFF & _BOREN_ON & _BORV_LOW & _PPS1WAY_ON & _STVREN_ON & _DEBUG_OFF
 	; CONFIG3
-	; __config 0x2003
 	__CONFIG _CONFIG3, _WRT_OFF & _LVP_OFF
 	; CONFIG4
-	; __config 0x3
 	__CONFIG _CONFIG4, _CP_OFF & _CPD_OFF
 		
 ; ******* DEFFINITION AF VARIABLE *********************************************************
@@ -33,7 +33,7 @@
 	START_SERIEL	EQU 0x21    ; Start register til seriel kommunikation
 	STOP_SERIEL	EQU 0x22    ; Stop register til seriel kommunikation
 	MODTAGET_DATA	EQU 0x23    ; Definer register til lagring af modtaget data
-		
+	SEND_DATA	EQU 0x24    ; Definér regiter til lagring af data der skal sendes til RPI
 ; ******* OPSÆTNING AF PROGRAM POINTERE ***************************************************
     org		0x0000				; Programstart efter et reset
     GOTO	init				; Gå til opsætning
@@ -72,7 +72,7 @@ init
     MOVLW 0x14 ; TX til RA1 (PIN 6)
     MOVWF RA1PPS
     
-    BANKSEL RA4PPS
+    BANKSEL RA4PPS ; TODO ændre til RA5
     MOVLW b'00000010' ; PWM til RA4 (Pin 4)
     MOVWF RA4PPS
     
@@ -89,7 +89,7 @@ init
     
 ; ******* PINS DEFINERING TIL BLA. SERIEL KOMMUNIKATION ************************************
     BANKSEL TRISA   ; Sæt bank til hvor TRISA befinder sig
-    BCF TRISA,4	    ; Sæt TRISA til output
+    BCF TRISA,4 ; TODO SLET
     BSF TRISA,0	    ; Sæt op til RX (Seriel kommunikation)
     BSF TRISA,1	    ; Sæt op til TX (Seriel komunikation)
     
@@ -146,154 +146,95 @@ init
     BSF PWM5CON,PWM5EN ; Enable the PWMx module
     
 ; ******* INDSTILLING AF REGISTRE **********************************************************
-    ; Sæt start værdi i register
-   
-    MOVLW 0xFF
-    BANKSEL START_SERIEL
-    MOVWF START_SERIEL
-    CLRW
+    ; Sæt start værdier i de forskellige egne definerede registre
+    MOVLW 0xFF ; Start pakke defineres til at være 255
+    BANKSEL START_SERIEL ; Gå til bank
+    MOVWF START_SERIEL ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
     
     ; Sæt lysnr til lyskilde
-    MOVLW 0x01
-    BANKSEL LYSNR
-    MOVWF LYSNR
-    CLRW
+    MOVLW 0x01 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere) TODO ændre til 0 
+    BANKSEL LYSNR ; Gå til bank
+    MOVWF LYSNR ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
     
     ; Sæt stop værdi i register
-    MOVLW 0x00
-    BANKSEL STOP_SERIEL
-    MOVWF STOP_SERIEL
-    CLRW
+    MOVLW 0x00 ; Stop pakke defineres til at være 0
+    BANKSEL STOP_SERIEL ; Gå til bank
+    MOVWF STOP_SERIEL ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+    
+    ; Sæt modtaget data registret til nul
+    MOVLW 0x00 ; Sæt egne definerede registre til 0
+    BANKSEL MODTAGET_DATA ; Gå til bank
+    MOVWF MODTAGET_DATA ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+    
+    ; Sæt sendt data registret til nul
+    MOVLW 0x00 ; Sæt egne definerede registre til 0
+    BANKSEL SEND_DATA ; Gå til bank
+    MOVWF SEND_DATA ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
     
     GOTO MAIN ; Gå til MAIN som tager sig af, hvad lysstyringen skal gøre
 
 ; ******* HOVEDPROGRAM **********************************************************************
     
 MAIN
-   GOTO INITIALIZE_SERIEL_RECEIVER
-   ;GOTO INITIALIZE_SERIEL_TRANSMIT
-
+   ; Hvis lyskildens microcontroller ikke har et LYSNR, så skal den have tildelt et
+    BANKSEL LYSNR ; Gå til bank
+    MOVF LYSNR,W ; Flyt lyskildens LYSNR til W
+    
+    BTFSC STATUS,Z ; Hvis dens LYSNR er 0
+	GOTO GET_LYSNR ; Så skal den forespørge RPI'en om et lysnr
+  
+    GOTO LYSSTADIE ; Ellers, så skal den gå til check for data 
+   
 ; ------- SERIEL RECIPERING AF DATA FRA RASPBERRY PI ---------------------------------------
-INITIALIZE_SERIEL_RECEIVER ; Initialiser seriel recipering
-    CALL RECEIVERSETUP ; Opsæt til at modtage data fra Rasperry Pi'en
-    GOTO CHECK_SERIEL_START ; Gå til check for data 
     
-CHECK_SERIEL_START ; Har vi modtaget noget nyt data siden sidst?
-    CALL DATA_CHECK ; Tjek flag for nyt data
+GET_LYSNR
+    MOVLW D'0' ; Hvis vi sender nul til RPI'en, så skal den sende lyskilden et lysnr
+    BANKSEL SEND_DATA ; Gå til bank
+    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
     
-    BANKSEL RC1REG ; Hvis nyt data modtaget, flyt det til arbejdsregistret
-    MOVF RC1REG,W
-
-
-    ; Check for start på modtaget data
-    BANKSEL START_SERIEL
-    SUBWF START_SERIEL,W
+    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
+    CALL CHECK_FOR_DATA_FROM_RPI ; Modtag  et lysnr'et fra RPI'en
     
-    BTFSC STATUS,Z
-	GOTO CHECK_FOR_LYSNR
-
-    CLRW
+    BANKSEL MODTAGET_DATA ; Gå til bank
+    MOVF MODTAGET_DATA,W ; Flyt det modtagede data til arbejdsregistret
     
-    GOTO CHECK_SERIEL_START
+    BANKSEL LYSNR ; Gå til bank
+    MOVWF LYSNR ; Flyt dataen til LYSNR registret
+    BANKSEL MODTAGET_DATA ; Gå til bank
+    CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er anvendt
     
-CHECK_FOR_LYSNR
+    GOTO MAIN ; Gå til MAIN
     
-    CALL DATA_CHECK
+LYSSTADIE
+    ; Denne del af koden sørger for modtagelse af det ønskede lysstadie fra Raspberry Pi'en
+    CALL CHECK_FOR_DATA_FROM_RPI ; Tjek om RPI'en har sendt et nyt lysstadie som lyskilden skal køre
     
-    BANKSEL RC1REG
-    MOVF RC1REG,W
-
-    ;Check for LYSNR
-    BANKSEL LYSNR
-    SUBWF LYSNR,W
+    BANKSEL MODTAGET_DATA ; Gå til bank
+    MOVF MODTAGET_DATA,W ; Flyt det modtagede data til arbejdsregistret
     
-    BTFSC STATUS,Z
-	GOTO CHECK_FOR_DATA
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVWF PWM5DCH ; Flyt dataen ud på LED ved hjælp af Pulse-bredde modulation
+    BANKSEL MODTAGET_DATA ; Gå til bank
+    CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er sendt ud til lyset
     
-    CLRW
-    GOTO MAIN
-
-CHECK_FOR_DATA
-
-    ; Check for data
-    CALL DATA_CHECK
-    
-    BANKSEL RC1REG
-    MOVF RC1REG,W
-    
-    ; Flyt dataen ud på LED ved hjælp af Pulse-bredde modulation
-    BANKSEL PWM5DCH
-    MOVWF PWM5DCH
-    
-    CLRW
-    GOTO CHECK_FOR_STOP
-
-CHECK_FOR_STOP
-    ; Check for stop på modtagning af data
-    CALL DATA_CHECK
-    BANKSEL RC1REG
-    MOVF RC1REG,W
-
-    ; Check for start på modtaget data
-    BANKSEL STOP_SERIEL
-    SUBWF STOP_SERIEL,W
-    
-    BTFSC STATUS,Z
-	GOTO MAIN
-	
-    CLRW
-    GOTO CHECK_FOR_STOP
-
-DATA_CHECK
-    ; Tjek om nyt data er klar til at blive modtaget fra Rasperry Pi
-    BANKSEL PIR1 ; Gå til bank
-    BTFSS PIR1,RCIF ; Tjek flag
-    	GOTO DATA_CHECK
-    RETURN
-
-; ------- SERIEL TRANSMITTERING AF DATA TIL RASPBERRY PI ---------------------------------------    
-
-INITIALIZE_SERIEL_TRANSMIT ; Initialiser seriel transmittering
-   CALL TRANSMITTERSETUP ; Opsæt til at transmittere data til Rasperry Pi'en
-   GOTO SEND_STATUS_TO_PI ; Send lysets stadie til Raspberry Pi
-   
-SEND_STATUS_TO_PI
-; Send information om lys
-   CALL CHECK_TRANSMIT_STATUS ; Tjek om den er igang med at transmittere andet data, vent hvis ja
-   
-   BANKSEL LYSNR
-   MOVF LYSNR,W ; Send LYSNR
-
-   BANKSEL TX1REG
-   MOVWF TX1REG ; til Raspberry Pi
-
-   CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med den sidste transmittering, vent hvis nej
-   
-   BANKSEL PWM5DCH ; Gå til bank
-   MOVF PWM5DCH,W ; Flyt lysets stadie ud i arbejdsregistret
-   
-   BANKSEL TX1REG ; Gå til bank
-   MOVWF TX1REG ; Transmitter lysets stadie til Raspberry Pi
-   
-   CALL CHECK_TRANSMIT_STATUS ; Vent på at den er færdig med at transmittere
-   
-   GOTO MAIN ; Gå tilbage til MAIN
-   
-CHECK_TRANSMIT_STATUS
-   BANKSEL PIR1 ; Gå til bank
-   BTFSS PIR1,TXIF ; Tjek flag: Hvis den er clearet, så er den igang med at transmittere
-	GOTO CHECK_TRANSMIT_STATUS ; Vent på at den er færdig
-   RETURN ; Returner når den er klar igen
-   
+    GOTO LYSSTADIE ; Bliv ved med at tjekke for nyt lysstadie
+  
 ; ------- TEST TEST TEST TEST TEST TEST TEST TEST TEST ------------------------------------
 TEST_DEAD
     BANKSEL PWM5DCH ; Set bank
     MOVLW B'11111111'  ; Beregnet ved hjælp af formel 18-2 side 168
     MOVWF PWM5DCH
-    CALL DELAY
-    MOVLW B'00000000'
-    MOVWF PWM5DCH
-    GOTO TEST_DEAD
+    CALL DELAY2
+    CALL DELAY2
+     BANKSEL PWM5DCH ; Set bank
+    MOVLW B'00000000'  ; Beregnet ved hjælp af formel 18-2 side 168
+    MOVWF PWM5DCH   
+    RETURN
     
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
     END ; Her slutter programmet

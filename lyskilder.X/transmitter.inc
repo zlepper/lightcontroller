@@ -1,12 +1,58 @@
 ;**** FIL OPLYSNINGER ******************************************************************
-;	Fil:		transmitter.inc
-;   Dato:		04.04.2016
-;	forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
+;   Fil:	transmitter.inc
+;   Dato:	04.04.2016
+;   Forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
 
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
+;   Denne fil sørger for transmitteringen af data til Raspberry Pi'en, som inkluderer at opsætte
+;   microcontrolleren til seriel asynkron transmittering og transmittering af fire data pakker:
+;   Start, lysnr, data og stop pakke
 
 ; ******* HOVEDPROGRAM ********************************************************************
+
+TRANSMIT_TO_RPI
+; Vores transmittering af data består af 4 pakker: Start, lysnr, data og stop pakke
+    CALL TRANSMITTERSETUP ; Sæt lyskildens microcontroller op til at være transmitter
+    
+    CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med at transmittere
+    
+    BANKSEL START_SERIEL ; Gå til bank
+    MOVF START_SERIEL,W ; Flyt start pakke til arbejdsregistret
+    BANKSEL TX1REG ; Gå til bank
+    MOVWF TX1REG ; Transmittér start pakke
+    
+    CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med at transmittere
+    
+    BANKSEL LYSNR ; Gå til bank
+    MOVF LYSNR,W ; Flyt lysnr pakke til arbejdsregistret
+    BANKSEL TX1REG ; Gå til bank
+    MOVWF TX1REG ; Transmittér lysnr pakke
+    
+    CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med at transmittere
+    
+    BANKSEL SEND_DATA ; Gå til bank
+    MOVF SEND_DATA,W ; Flyt data pakke til arbejdsregistret (Den data vi gerne vil sende)
+    BANKSEL TX1REG ; Gå til bank
+    MOVWF TX1REG ; Transmittér data pakke, som sender vores ønsket data afsted
+    
+    CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med at transmittere
+    
+    BANKSEL STOP_SERIEL ; Gå til bank
+    MOVF STOP_SERIEL,W  ; Flyt stop pakke til arbejdsregistret
+    BANKSEL TX1REG ; Gå til bank
+    MOVWF TX1REG ; Transmittér stop pakke
+    
+    CALL CHECK_TRANSMIT_STATUS ; Tjek om den er færdig med at transmittere
+    
+    CLRF SEND_DATA ; Vi rydder SEND_DATA, da dataen er blevet sendt
+    RETURN ; Returnér når den er færdig med at transmittere
+    
+CHECK_TRANSMIT_STATUS
+   BANKSEL PIR1 ; Gå til bank
+   BTFSS PIR1,TXIF ; Tjek flag: Hvis den er clearet, så er den igang med at transmittere
+	GOTO CHECK_TRANSMIT_STATUS ; Vent på at den er færdig
+   RETURN ; Returner når den er klar igen    
 
 TRANSMITTERSETUP
 ; Start med at sæt de forskellige bits, som er associeret med "asynchronous transmission"
@@ -50,7 +96,6 @@ TRANSMITTERSETUP
     BCF PIR1,TXIF ; Sætter interuptflaget til 0, 1 betyder byte modtaget
 	
     RETURN ; Setup er færdig, vend tilbage til hovedprogram
-
 ; ******* PROGRAM AFSLUTTET ***************************************************************
 
 

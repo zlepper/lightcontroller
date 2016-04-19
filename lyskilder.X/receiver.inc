@@ -1,13 +1,86 @@
 ;**** FIL OPLYSNINGER ******************************************************************
-;	Fil:		reciever.inc
-;   Dato:		04.04.2016
-;	forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
+;   Fil:	reciever.inc
+;   Dato:	04.04.2016
+;   Forfatter:	Mathias Bejlegaard Madsen & Rasmus Hjelmberg Duemose Hansen
 
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
+;   Denne fil sørger for reciperingen af data fra Raspberry Pi'en, som inkluderer at opsætte
+;   microcontrolleren til seriel asynkron recipering, tolke på den modtagede data 
+;   og lagre den brugbare data.
 
 ; ******* HOVEDPROGRAM ********************************************************************
 
+CHECK_FOR_DATA_FROM_RPI
+    ; Har vi modtaget noget nyt data siden sidst?
+    CALL RECEIVERSETUP ; Sæt lyskildens microcontroller op til at være receiver
+    
+    CALL CHECK_RECEIVE_STATUS ; Tjek om vi har modtaget nyt data fra RPI
+    
+    BANKSEL RC1REG ; Gå til bank
+    MOVF RC1REG,W ; Hvis nyt data modtaget, flyt det til arbejdsregistret
+
+    ; Check for start på modtaget data
+    BANKSEL START_SERIEL ; Gå til bank
+    SUBWF START_SERIEL,W ; Tjek om et start er sendt
+    
+    BTFSC STATUS,Z ; Hvis et start er sendt
+	GOTO CHECK_FOR_LYSNR ; Så gå til tjek for LYSNR
+
+    GOTO CHECK_FOR_DATA_FROM_RPI ; Hvis ikke, tjek indtil et start er modtaget
+    
+CHECK_FOR_LYSNR
+      
+    ; Tjek om det er denne lyskilde, som RPI'en vil i kontakt med
+    CALL CHECK_RECEIVE_STATUS ; Tjek om vi har modtaget nyt data fra RPI
+    
+    BANKSEL RC1REG ; Gå til bank
+    MOVF RC1REG,W ; Flyt det modtagede data til arbejdsregistret
+
+    ;Check for LYSNR
+    BANKSEL LYSNR ; Gå til bank
+    SUBWF LYSNR,W ; Tjek om det er denne lyskilde som RPI'en prøver at kommunikere med
+    
+    BTFSC STATUS,Z ; Hvis det er denne lyskilde
+	GOTO CHECK_FOR_DATA ; Så gå til tjek for data pakke
+    
+    GOTO CHECK_FOR_DATA_FROM_RPI ; Hvis ikke, gå tilbage til MAIN, da det så ikke er denne lyskilde den vil i kontakt med
+
+CHECK_FOR_DATA
+    
+    ; Tjek for data pakke
+    CALL CHECK_RECEIVE_STATUS ; Tjek om vi har modtaget nyt data fra RPI
+    
+    BANKSEL RC1REG ; Gå til bank
+    MOVF RC1REG,W ; Flyt det modtagede data til arbejdsregistret
+    
+    BANKSEL MODTAGET_DATA ; Gå til bank
+    MOVWF MODTAGET_DATA ; Flyt dataen til lagring i MODTAGET_DATA registret
+    
+    GOTO CHECK_FOR_STOP ; Gå til tjek for stop pakke
+
+CHECK_FOR_STOP
+    ; Tjek for stop pakke
+    CALL CHECK_RECEIVE_STATUS ; Tjek om vi har modtaget nyt data fra RPI
+    BANKSEL RC1REG ; Gå til bank
+    MOVF RC1REG,W ; Flyt det modtagede data til arbejdsregistret
+   
+    ; Check for start på modtaget data
+    BANKSEL STOP_SERIEL ; Gå til bank
+    SUBWF STOP_SERIEL,W ; Tjek om et stop er sendt
+   
+    BTFSC STATUS,Z ; Hvis et stop er sendts
+	RETURN ; Gå til at bruge det modtagede data
+    
+    GOTO CHECK_FOR_STOP ; Hvis ikke, tjek indtil et stop pakke er modtaget
+	
+CHECK_RECEIVE_STATUS
+    ; Tjek om nyt data er klar til at blive modtaget fra Rasperry Pi
+    BANKSEL PIR1 ; Gå til bank
+    BTFSS PIR1,RCIF ; Tjek flag
+    	GOTO CHECK_RECEIVE_STATUS ; Loop tjekket, indtil den er klar
+    RETURN ; Returnér når nyt data er klar til at blive modtaget
+    
 RECEIVERSETUP
 	; Sæt de forskellige bits, som er associeret med "asynchronous reception"
 	BANKSEL PIR1 ; Gå til banken hvor PIR1 ligger
@@ -48,7 +121,6 @@ RECEIVERSETUP
 	CLRF MODTAGET_DATA ; Clear vores resultat register, så nyt data kan blive lageret
 
 	RETURN ; Setup er færdig, vend tilbage til hovedprogram
-
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
 
 
