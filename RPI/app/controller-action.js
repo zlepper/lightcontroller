@@ -107,7 +107,7 @@ exports.setLight = setLight
 
 function resync() {
 	assignController(function(controller) {
-		
+		console.log("Resynced");
 	});	
 }
 

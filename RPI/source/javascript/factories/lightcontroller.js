@@ -20,6 +20,9 @@
 		this.getSwitches = function() {
 			return $http.get(switchBase, {}); 
 		}
+		this.connectNewControllers = function() {
+			return $http.post(switchBase + "/resync", {});
+		}
 	};
 
 	function LightControllerFactory($http) {

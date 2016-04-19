@@ -1,31 +1,39 @@
 <!DOCTYPE html>
 <html ng-app="lightcontroller" ng-controller="MainController as vm">
-		<head>
-				<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-				<meta charset="UTF-8">
-				<title>Lysstyring</title>
-				<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-				<link rel="stylesheet" href="/bundle.css">
-				<script src="/bundle.js"></script>
-		</head>
-		<body>
-				<div class=md-content>
-						<div id="content" ng-show="vm.controllers.length">
-								<md-list ng-repeat="controller in vm.controllers">
-								<md-list-item>
-								<p>{{controller.name}}</p>
-								<md-slider drag-end="vm.setPower(controller)" flex ng-model="controller.power" min="0" max="255" aria-label="Lysmængde">
-								</md-slider>
-								<button class="md-button" ng-click="vm.toggle(controller)">
-										<md-icon class="material-icons" ng-style="{'color': controller.state ? vm.getLightColor(controller) : 'black'}">lightbulb_outline</md-icon>
-								</button>
-								</md-list-item>
-								</md-list>
-						</div>
-						<div id="loading" ng-hide="vm.controllers.length">
-								<md-progress-circular md-diameter="200" md-mode='indeterminate'></md-progress-circular>
-						</div>
-				</div>
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+	<meta charset="UTF-8">
+	<title>Lysstyring</title>
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<link rel="stylesheet" href="/bundle.css">
+	<script src="/bundle.js"></script>
+</head>
+
+<body>
+	<div class="md-content">
+		<md-toolbar>
+			<div class="md-toolbar-tools">
 				<button class="md-button" value="Opret falsk controller" ng-click="vm.createFakeController()">Opret falsk controller</button>
-		</body>
+				<button class="md-button" value="Forbind nye controllere" ng-click="vm.connectNewControllers()">Opret falsk controller</button>
+			</div>
+		</md-toolbar>
+		<div id="content" ng-show="vm.controllers.length">
+			<md-list>
+				<md-list-item ng-repeat="controller in vm.controllers" ng-click="vm.showOptions($event, controller)">
+					<p>{{controller.name}}</p>
+					<md-slider drag-end="vm.setPower(controller)" flex ng-model="controller.power" min="0" max="255" aria-label="Lysmængde">
+					</md-slider>
+					<button class="md-button" ng-click="vm.toggle(controller)">
+							<md-icon class="material-icons" ng-style="{'color': controller.state ? vm.getLightColor(controller) : 'black'}">lightbulb_outline</md-icon>
+					</button>
+				</md-list-item>
+			</md-list>
+		</div>
+		<div id="loading" ng-hide="vm.controllers.length">
+			<md-progress-circular md-diameter="200" md-mode='indeterminate'></md-progress-circular>
+		</div>
+	</div>
+</body>
+
 </html>
