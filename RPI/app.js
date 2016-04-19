@@ -40,7 +40,7 @@ app.listen(80, function() {
 // Some debug code
 n = 0;
 // Create a fake controller, which we are using during development while waiting for the pic code to be done. 
-portIO.addController();
+//portIO.addController();
 // Send a new signal every few seconds, again debugging
 /*setInterval(function() {
 		portIO.sendNumber(1, n);

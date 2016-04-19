@@ -1,4 +1,6 @@
 var controllerAction = require("./controller-action");
+var portio = require("./portio");
+
 
 function Controller() {
 	// Create an id for the controller and increment the id counter
@@ -36,3 +38,5 @@ Controller.prototype.setPower = function(power) {
 }
 
 module.exports = Controller;
+
+

@@ -38,4 +38,10 @@ router.put("/switches/:id/:level", function(req, res) {
 	res.sendStatus(200);
 });
 
+router.post("/switches/resync", function(req, res) {
+	console.log("Got resync request");
+	controller.resync();	
+});
+
+
 module.exports = router;

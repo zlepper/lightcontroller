@@ -1,6 +1,6 @@
 var portio = require("./portio");
 var Controller = require("./controller");
-
+var fs = require("fs");
 // Create a list of all the controllers our system knows about
 var controllers = [];
 
@@ -8,6 +8,7 @@ var controllers = [];
 function addController() {
 		var controller = new Controller();
 		controllers.push(controller);
+		return controller;
 }
 
 // Export the add controller function
@@ -71,27 +72,71 @@ exports.power = power;
 
 // Sends a specific number to the specified controller
 function sendNumber(controller, number) {
-		// Make sure the controller number doens't become too big. If it does it clashes with some other code on the microcontroller
-		if(controller === 255) {
-				return;
-		}
 		// Queue our start byte
 		portio.queueNumber(255);
 		// Queue the controller number
 		portio.queueNumber(controller);
 		// Avoid issues if the controller has the same id as the wanted power level
-		if(controller == number) {
-				portio.queueNumber(number + 1);
-		} else {
-				portio.queueNumber(number);
-		}
+		portio.queueNumber(number);
 		// Queue our end bit.
 		portio.queueNumber(0);
 }
 
+var assignController = function(callback) {
+
+		var controller = addController();
+		sendNumber(0, controller.id);
+		callback(controller);
+}
+
+portio.assignControllerIdAssignmentFunction(assignController);
 // Export the send number function
 exports.sendNumber = sendNumber;
 // Export a get all function that returns a list of all the controllers in the system and their current settings
 exports.getAll = function() {
 		return controllers;
 }
+
+function setLight(controllerId, level) {
+	var controller = getController(controllerId);
+	if(controller) {
+		controller.level = level;
+	}
+}
+exports.setLight = setLight
+
+function resync() {
+	assignController(function(controller) {
+		
+	});	
+}
+
+
+function saveControllers() {
+	var cs = JSON.stringify(controllers, null, "  ");
+	fs.writeFileSync("controllers.json", cs, "utf8");
+	console.log("Controllers written to file");
+}
+
+function loadControllers() {
+	var cs = fs.readFileSync("controllers.json", "utf8");
+	var cse = JSON.parse(cs);
+	var biggestId = -1;
+	for(var i = 0; i < cse.length; i++) {
+		var c = cse[i];
+		var ctrl = addController();
+		ctrl.id = c.id;
+		ctrl.level = c.level;
+		ctrl.name = c.name;
+		ctrl.state = c.state;
+		if(c.id > biggestId) {
+			biggestId = c.id;
+		}
+	}
+	Controller.nextId = biggestId + 1;
+	console.log("Controllers loaded");
+}
+
+process.on('exit', function () {
+	saveControllers();	
+});
