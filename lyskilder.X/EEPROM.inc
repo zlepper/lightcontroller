@@ -13,6 +13,9 @@
     ; Se side 113 i databladet for mere information om skrvning til EEPROM
 EEPROM_WRITE
     
+    BANKSEL NVMCON1 ; Gå til bank
+    CALL WAIT_ON_EEPROM ; Vent på, at den er klar til at skrive til EEPROM
+    
     ; Set the NVMREGS and WREN bits of the NVMCON1 register
     BANKSEL NVMCON1
     BSF NVMCON1,NVMREGS
@@ -54,10 +57,6 @@ EEPROM_WRITE
     BSF NVMCON1,WR ; Step 4: Set WR bit to begin write
     BSF INTCON,GIE ; Re-enable interrupts
     
-    BANKSEL NVMCON1 ; Gå til bank
- ;   BCF PIR2,NVMIF ; Ryd flaget, så den ikke indikerer tidligere skrivning til EEPROM TODO
-    CALL WAIT_ON_EEPROM ; Vent på, at den er færdig med at skrive til EEPROM
-    
     RETURN ; Skrivning til EEPROM er færdig, vend tilbage til hovedprogram
     
 EEPROM_READ
@@ -89,9 +88,9 @@ EEPROM_READ
     RETURN
 		
 WAIT_ON_EEPROM
-    BTFSC NVMCON1,WR ; Gå ud af loop når den er færdig med at skrive til EEPROM
-	GOTO WAIT_ON_EEPROM ; Vent indtil den er færdig
-    BCF NVMCON1,WREN ; Ryd WREN for at indikere, at vi er færdig med at skrive til EEPROM
+    BTFSC NVMCON1,WR ; Gå ud af loop når den er klar til at skrive til EEPROM
+	GOTO WAIT_ON_EEPROM ; Vent indtil den er klar
+    BCF NVMCON1,WREN ; Ryd WREN for at indikere, at vi den er klar til at skrive til EEPROM
     RETURN ; Returnér
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
 
