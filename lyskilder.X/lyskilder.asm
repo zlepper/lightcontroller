@@ -19,13 +19,13 @@
 	errorlevel -207
 ; ******* Configure the PIC *****************************************************
 	
-	; CONFIG1
+	; CONFIG1: RSTOSC skal være HFINT32 for at få 32 MHz
 	__CONFIG _CONFIG1, _FEXTOSC_OFF & _RSTOSC_HFINT32 & _CLKOUTEN_OFF & _CSWEN_ON & _FCMEN_ON
 	; CONFIG2 TODO: PRØV AT SÆTTE PWERTE ON
 	 __CONFIG _CONFIG2, _MCLRE_ON & _PWRTE_ON & _WDTE_OFF & _LPBOREN_OFF & _BOREN_ON & _BORV_LOW & _PPS1WAY_ON & _STVREN_ON & _DEBUG_OFF
 	; CONFIG3
 	__CONFIG _CONFIG3, _WRT_OFF & _LVP_OFF
-	; CONFIG4
+	; CONFIG4: CPD skal være OFF, så vi kan skrive til EEPROM
 	__CONFIG _CONFIG4, _CP_OFF & _CPD_OFF
 		
 ; ******* DEFFINITION AF VARIABLE *********************************************************
