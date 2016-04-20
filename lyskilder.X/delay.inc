@@ -19,6 +19,7 @@ DELAY ; Delay funktion
     MOVLW	h'F5' ; Tidsforsinkelse beregnet ved fosc på 8 MHz		
     MOVWF	Delay2 ; Sættes til den mest betydende byte
 ; Udfør delay'et
+    BANKSEL Delay1
 LOOP1	INCFSZ	Delay1,F 
 	GOTO	LOOP1
 	INCF	Delay1,F

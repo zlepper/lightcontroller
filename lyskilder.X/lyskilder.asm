@@ -36,7 +36,12 @@
 	SEND_DATA	EQU 0x24    ; Definér regiter til lagring af data der skal sendes til RPI
 	EEPROM_ADRESSE	EQU 0x25    ; Definér register til lagring af ønsket EEPROM adresse
 	EEPROM_DATA	EQU 0x26    ; Definér register til lagring af ønkset skrevet data til EEPROM
-	
+	ADC_DATA	EQU 0x27    ; Definér register til lagring af data fra ADC
+	TEMP_ADC_DATA	EQU 0x28    ; Definér register til lagring af tidligere data fra ADC
+	FLAG		EQU 0x29    ; Definér register til lagring af knap
+		
+	#DEFINE BUTTON_CLICKED FLAG,0
+	#DEFINE DATA_READY FLAG,1
 ; ******* OPSÆTNING AF PROGRAM POINTERE ***************************************************
     org		0x0000				; Programstart efter et reset
     GOTO	init				; Gå til opsætning
@@ -54,6 +59,7 @@ init
     CLRF LATA	    ; Data latch
     BANKSEL ANSELA  ; Sæt bank til hvor ANSELA befinder sig
     CLRF ANSELA	    ; Digital I/O
+    BSF ANSELA,4    ; Sæt TRISA,4 for ADC-konventering TODO ADC
 
 ; ******* PERIPHERAL PIN SELECT - OMDEFINÉR RX OG TX TIL NYE PINS **************************
     BANKSEL INTCON
@@ -75,9 +81,9 @@ init
     MOVLW 0x14 ; TX til RA1 (PIN 6)
     MOVWF RA1PPS
     
-    BANKSEL RA4PPS ; TODO ændre til RA5
-    MOVLW b'00000010' ; PWM til RA4 (Pin 4)
-    MOVWF RA4PPS
+    BANKSEL RA5PPS
+    MOVLW b'00000010' ; PWM til RA5 (Pin 5)
+    MOVWF RA5PPS
     
     ; Krævet for at åbne/lukke for PPS
     BANKSEL PPSLOCK ; Set bank
@@ -92,20 +98,12 @@ init
     
 ; ******* PINS DEFINERING TIL BLA. SERIEL KOMMUNIKATION ************************************
     BANKSEL TRISA   ; Sæt bank til hvor TRISA befinder sig
-    BCF TRISA,4 ; TODO SLET
-    BSF TRISA,3	    ; Sæt op til input fra knap
-    ;BSF TRISA,4    ; Sæt op til AV-konvetering fra potentiometer TODO
+    BSF TRISA,2	    ; Sæt op til input fra knap
+    BSF TRISA,4     ; Sæt op til ADC-konvetering fra potentiometer TODO ADC
     BSF TRISA,0	    ; Sæt op til RX (Seriel kommunikation)
     BSF TRISA,1	    ; Sæt op til TX (Seriel komunikation)
     
 ; ******* PULS-BREDDE MODULATION ***********************************************************
-    
-    ; Sæt oscillatoren
-    ; TODO SLET ALT DETTE!
-    ; Vi vælger HFINTOSC (High-Frequency Internal  Oscillator), for at få 32 MHz i configuration 
-    ;BANKSEL OSCFRQ ; HFINTOSC FREQUENCY SELECTION REGISTER
-    ;MOVLW B'00000100' 
-    ;MOVWF OSCFRQ ; Vi omdanner MHz fra 32 til 8 MHz
     
     BANKSEL TRISA ; Set bank
     BSF TRISA,5 ; Disable the PWMx pin output driver(s) by setting the associated TRIS bit(s)
@@ -159,7 +157,7 @@ init
     CLRW ; Clear arbejdsregistret
     
     ; Sæt lysnr til lyskilde
-    MOVLW 0x01 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere) TODO
+    MOVLW 0x00 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere) TODO
     BANKSEL LYSNR ; Gå til bank
     MOVWF LYSNR ; Flyt til bank
     CLRW ; Clear arbejdsregistret
@@ -194,8 +192,22 @@ init
     MOVWF EEPROM_ADRESSE ; Flyt til bank
     CLRW ; Clear arbejdsregistret
 
-    CALL GET_DATA_FROM_EEPROM ; Ved initialisering henter vi lagret data fra EEPROM
+    ; Sæt ADC_DATA registret til nul
+    MOVLW 0x00 ; Sæt egne definerede registre til 0
+    BANKSEL ADC_DATA ; Gå til bank
+    MOVWF ADC_DATA ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+    
+    ; Sæt TEMP_ADC_DATA adresse registret til nul
+    MOVLW 0x00 ; Sæt egne definerede registre til 0
+    BANKSEL TEMP_ADC_DATA ; Gå til bank
+    MOVWF TEMP_ADC_DATA ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+    
+    CALL GET_DATA_FROM_EEPROM ; Ved initialisering henter vi lagret data fra EEPROM TODO EEPROM
    
+    CALL OPDATER_RPI ; DEN LÆSER 255 FRA EEPROM
+    
     GOTO MAIN ; Gå til MAIN som tager sig af, hvad lysstyringen skal gøre
 
 ; ******* HOVEDPROGRAM **********************************************************************
@@ -212,12 +224,7 @@ MAIN
     
 ; ------- SERIEL TRANSMITTERING AF DATA TIL RASPBERRY PI ---------------------------------------
 GET_LYSNR
-    ; TODO
-    ;MOVLW D'0' ; Hvis vi sender nul til RPI'en, så skal den sende lyskilden et lysnr
-    ;BANKSEL SEND_DATA ; Gå til bank
-    ;MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
-    
-    ;CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
+
     CALL CHECK_FOR_DATA_FROM_RPI ; Modtag  et lysnr'et fra RPI'en
     
     BANKSEL MODTAGET_DATA ; Gå til bank
@@ -229,7 +236,7 @@ GET_LYSNR
     BANKSEL MODTAGET_DATA ; Gå til bank
     CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er anvendt
     
-    CALL OPDATER_EEPROM ; Opdatér dataen lagret i EEPROM
+    CALL OPDATER_EEPROM ; Opdatér dataen lagret i EEPROM TODO EEPROM
    
     GOTO LYSSTADIE ; Gå til MAIN
     
@@ -238,8 +245,7 @@ LYSSTADIE
     
     ; Denne del af koden sørger for modtagelse af det ønskede lysstadie fra Raspberry Pi'en
     ; og tjekker ofte, om knappen er blevet trykket på
-    
-    CALL CHECK_BUTTON ; Tjek om knappen er blevet trykket
+    ;CALL CHECK_BUTTON ; Tjek om knappen er blevet trykket TODO BUTTON
     
     CALL CHECK_FOR_DATA_FROM_RPI ; Tjek om RPI'en har sendt et nyt lysstadie som lyskilden skal køre
     
@@ -252,34 +258,50 @@ LYSSTADIE
     BANKSEL MODTAGET_DATA ; Gå til bank
     CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er sendt ud til lyset
     
-    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
-    
-    ;CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie TODO EEPROM
     
     GOTO LYSSTADIE ; Bliv ved med at tjekke for nyt lysstadie
 
 ; ------- TJEK OM DER ER BLEVET TRYKKET PÅ KNAPPEN ---------------------------------------
     
 CHECK_BUTTON
-    BTFSS PORTA,3 ; Hvis knappen ikke er trykket
-	RETURN ; Returnér
+    BANKSEL PORTA
+    BTFSS PORTA,2 ; Hvis knappen ikke er trykket
+	GOTO BUTTON_CLEAR ; Returnér
+	
+    CALL DELAY
+    
+    BANKSEL PORTA
+    BTFSS PORTA,2 ; Hvis knappen ikke er trykket
+	GOTO BUTTON_CLEAR ; Returnér    
+    
+    BANKSEL FLAG
+    BTFSC BUTTON_CLICKED
+	RETURN
+
+    BSF BUTTON_CLICKED ; Sæt flag, at knappen er trykket
     
     ; Ellers, så skal lysstadiet ændres til det modsatte, og EEPROM og RPI skal opdateres
     BANKSEL PWM5DCH ; Gå til bank
     MOVF PWM5DCH,W ; Flyt lysstadie til arbejdsregistret
     
-    BTFSC STATUS,Z ; Hvis lysstadiet er nul
-	GOTO TOGGLE_LYSSTADIE_ON ; Så skal LED'en tændes
-    GOTO TOGGLE_LYSSTADIE_OFF ; Hvis ikke, så skal den slukkes
+    BTFSC STATUS,Z ; Hvis lysstadiet er nul				
+	GOTO TOGGLE_LYSSTADIE_ON ; Så skal LED'en tændes			
+    GOTO TOGGLE_LYSSTADIE_OFF ; Hvis ikke, så skal den slukkes		    
+
+BUTTON_CLEAR
+    BANKSEL FLAG
+    BCF BUTTON_CLICKED ; Ryd flag
+    RETURN
     
 TOGGLE_LYSSTADIE_ON
     MOVLW 0xFF ; Tænd LED på fuld styrke
     BANKSEL PWM5DCH ; Gå til bank
     MOVWF PWM5DCH ; Tænd for LED
     
-    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie TODO EEPROM
     
-    ;CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO
+    CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO RPI
     
     GOTO LYSSTADIE ; Gå til tjek for nyt lysstadie
     
@@ -288,99 +310,92 @@ TOGGLE_LYSSTADIE_OFF
     BANKSEL PWM5DCH ; Gå til bank
     MOVWF PWM5DCH ; Flyt ud på LED
     
-    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie TODO EEPROM
     
-    ;CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO
+    CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO RPI
     
     GOTO LYSSTADIE ; Gå til tjek for nyt lysstadie
 	
-; ------- HENT DATA FRA EEPROM VED START ---------------------------------------------
-
-GET_DATA_FROM_EEPROM
-    ; Hent LYSNR fra EEPROM
-    MOVLW 0x01 ; Gå til adressen, hvor LYSNR'eret befinder sig
-    BANKSEL EEPROM_ADRESSE ; Gå til bank
-    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+CHECK_POTENTIOMETER
+    ; Select ADC input channel
+    BANKSEL ADCON0 ; Gå til bank
+    CLRF ADCON0 ; Ryd registret
+    BSF ADCON0,4 ; Sæt denne bit for at vælge RA4 som input
     
-    CALL EEPROM_READ ; Hent dataen på overstående adresse
+    CALL DELAY ; Et delay er påkrævet
     
-    BANKSEL EEPROM_DATA
-    ;MOVF EEPROM_DATA,W
-    MOVLW 0x01 ; TODO SLET OVERSTÅENDE
+    ; Select ADC conversion clock
+    BANKSEL ADCON1 ; Gå til bank
+    CLRF ADCON1 ; Ryd registret
+    BSF ADCON1,5 ; Ved 32 MHz får vi en TAD på 1 pikosekund
+    BSF ADCON1,7 ; Højre justeret: Seks mest betydende bits er sat til 0, når den er færdig
     
-    BANKSEL LYSNR ; Gå til bank
-    MOVWF LYSNR ; Flyt dataen fra EEPRROM til LYSNR register
-    BANKSEL EEPROM_DATA
-    CLRF EEPROM_DATA
+    BANKSEL ADCON0 ; Gå til bank
+    BSF ADCON0,0 ; Turn on ADC module
     
-    ; Hent lysstadie fra EEPROM
-    MOVLW 0x02 ; Gå til adressen, hvor LYSNR'eret befinder sig
-    BANKSEL EEPROM_ADRESSE ; Gå til bank
-    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    ; Configure ADC interupt
+    BANKSEL PIR1 ; Gå til bank
+    BCF PIR1,ADIF ; Clear ADC flag
     
-    CALL EEPROM_READ ; Hent dataen på overstående adresse
+    BANKSEL PIE1 ; Gå til bank
+    BSF PIE1,ADIE ; Enable ADC interrupt
     
-    BANKSEL EEPROM_DATA
-    MOVF EEPROM_DATA,W
-
-    BANKSEL PWM5DCH ; Gå til bank
-    MOVWF PWM5DCH ; Flyt dataen ud på LED ved hjælp af Pulse-bredde modulation
-    BANKSEL EEPROM_DATA
-    CLRF EEPROM_DATA
+    BANKSEL INTCON ; Gå til bank
+    BSF INTCON,PEIE ; Skal sættes
+    BCF INTCON,GIE ; Skal cleares
     
-    RETURN ; Returnér
+    CALL DELAY
+    ; CALL WAIT_FOR_ACQUISITION_TIME ; Wait the required time TODO
     
-; ------- OPDATER DATAEN I EEPROM  --------------------------------------------------------
+    ; Start conversion
+    BANKSEL ADCON0 ; Gå til bank
+    BSF ADCON0,1 ; Set GO/DONE bit
     
-OPDATER_EEPROM
-    ; Opdater LYSNR
-    MOVLW 0x01 ; Flyt dataen til arbejdsregistret
-    BANKSEL EEPROM_ADRESSE ; Gå til bank
-    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    BANKSEL PIR1 ; Gå til bank
+    CALL WAIT_ON_ADC ; Wait for the ADC conversion to complete 
     
-    BANKSEL LYSNR ; Gå til bank
-    MOVF LYSNR,W ; Flyt dataen til arbejdsregistret
+    ; læs ADC: Vi læser kun det lave register, da vi kun har brug for de 8 bits, istedet for 10. Ellers skulle vi også læse high registret
+    BANKSEL ADRESL ; Gå til bank
+    MOVF ADRESL,W ; Flyt ADC data til arbejdsregister
+    MOVWF ADC_DATA ; Gem data i GPR
+    MOVF ADC_DATA,W ; Flyt data ud i arbejdsregistret igen
     
-    BANKSEL EEPROM_DATA ; Gå til bank
-    MOVWF EEPROM_DATA ; Lagrer dataen i registret
+    SUBWF TEMP_ADC_DATA,W ; Træk sidste indlæsning fra, hvis den giver nul, så er dataen ikke ændret
+    BTFSC STATUS,Z ; Tjek om dataen er forskellig fra sidste indlæsning
+	GOTO ADC_CHANGE_LYSSTADIE ; Dataen er forskellig, derfor udlæser vi den nye data til lyskilden
     
-    CALL EEPROM_WRITE ; Hent dataen på overstående adresse
-    
-    ; Opdater lysstadie
-    MOVLW 0x02 ; Flyt dataen til arbejdsregistret
-    BANKSEL EEPROM_ADRESSE ; Gå til bank
-    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
-    
-    BANKSEL PWM5DCH ; Gå til bank
-    MOVF PWM5DCH,W ; Flyt dataen til arbejdsregistret
-    
-    BANKSEL EEPROM_DATA ; Gå til bank
-    MOVWF EEPROM_DATA ; Lagrer dataen i registret
-    
-    CALL EEPROM_WRITE ; Hent dataen på overstående adresse
+    ; Clear the ADC interrupt flag
+    BANKSEL PIR1 ; Gå til bank
+    BCF PIR1,ADIF ; Skal ryddes i software
     
     RETURN ; Returnér
     
-; ------- OPDATÉR RASPBERRY PI MED LYSNR OG LYSSTADIE ------------------------------------
-OPDATER_RPI
-    ; Opdater lysstadie
-    BANKSEL PWM5DCH ; Gå til bank
-    MOVF PWM5DCH,W ; Flyt LED lysstadie til arbejdsregistret
-    BANKSEL SEND_DATA ; Gå til bank
-    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
-    
-    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
-    
+WAIT_ON_ADC
+    BTFSS PIR1,ADIF ; Tjek om ADC er færdig, flag sættes
+	GOTO WAIT_ON_ADC ; Vent på den er færdig
     RETURN ; Returnér
     
-; ------- TEST TEST TEST TEST TEST TEST TEST TEST TEST ------------------------------------
-TEST_DEAD
-    BANKSEL PWM5DCH ; Set bank
-    MOVLW B'11111111'  ; Beregnet ved hjælp af formel 18-2 side 168
-    MOVWF PWM5DCH 
-    MOVLW B'00000000'
-    MOVWF PWM5DCH
-    GOTO TEST_DEAD
+ADC_CHANGE_LYSSTADIE
+    BANKSEL ADC_DATA ; Gå til bank
+    MOVF ADC_DATA,W ; Flyt dataen ud i arbejdsregistret
+    
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVWF PWM5DCH ; Flyt dataen ud til lyskilden ved puls-bredde modulation
+    
+    BANKSEL ADC_DATA ; Gå til bank
+    MOVF ADC_DATA,W ; Flyt dataen ud i arbejdsregistret
+    BANKSEL TEMP_ADC_DATA ; Gå til bank
+    MOVWF TEMP_ADC_DATA ; Flyt til GPR for tidligere data
+    
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nye lysstadie
+    
+    CALL OPDATER_RPI ; Opdatér RPI'en med det nye lysstadie
+    
+    ; Clear the ADC interrupt flag
+    BANKSEL PIR1 ; Gå til bank
+    BCF PIR1,ADIF ; Skal ryddes i software
+    
+    GOTO LYSSTADIE
 
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
     END ; Her slutter programmet
