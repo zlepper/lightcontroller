@@ -83,7 +83,7 @@ CHECK_RECEIVE_STATUS
 CHECK_OTHER
     CALL CHECK_BUTTON ; Tjek om knappen er blevet trykket TODO BUTTON
     
-    CALL CHECK_POTENTIOMETER ; Tjek om potentiometeret er blevet ændret på TODO POTENTIOMETER
+    ;CALL CHECK_POTENTIOMETER ; Tjek om potentiometeret er blevet ændret på TODO POTENTIOMETER
     
     GOTO CHECK_RECEIVE_STATUS
     

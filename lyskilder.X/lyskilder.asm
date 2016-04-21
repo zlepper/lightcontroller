@@ -66,11 +66,11 @@ init
     BSF ANSELA,4    ; Sæt TRISA,4 for ADC-konventering TODO ADC
 
 ; ******* PERIPHERAL PIN SELECT - OMDEFINÉR RX OG TX TIL NYE PINS **************************
+    ; Krævet for at åbne/lukke for PPS
     BANKSEL INTCON
     BCF INTCON,GIE ; Stop interupts, imens vi omdefinerer pins
     
     BANKSEL PPSLOCK ; Set bank
-    ; Krævet for at åbne/lukke for PPS
     MOVLW 0x55 
     MOVWF PPSLOCK
     MOVLW 0xAA
