@@ -168,6 +168,25 @@ OPDATER_EEPROM
     
     RETURN ; Returnér
     
+RESET_EEPROM
+    ; Opdater LYSNR
+    
+    MOVLW 0x01 ; Flyt dataen til arbejdsregistret
+    BANKSEL EEPROM_ADRESSE ; Gå til bank
+    MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
+    
+    MOVLW 0x00
+    BANKSEL EEPROM_DATA ; Gå til bank
+    MOVWF EEPROM_DATA ; Lagrer dataen i registret
+    
+    CALL EEPROM_WRITE ; Hent dataen på overstående adresse
+    
+    MOVLW RESET_TIME
+    BANKSEL TÆLLE_REGISTER2 ; Gå til bank
+    MOVWF TÆLLE_REGISTER2 ; Flyt til bank
+    
+    GOTO init
+    
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
 
 

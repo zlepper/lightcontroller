@@ -39,9 +39,13 @@
 	ADC_DATA	EQU 0x27    ; Definér register til lagring af data fra ADC
 	TEMP_ADC_DATA	EQU 0x28    ; Definér register til lagring af tidligere data fra ADC
 	FLAG		EQU 0x29    ; Definér register til lagring af knap
+        TÆLLE_REGISTER1 EQU 0x30    ; Definér register til at tælle til reset EEPROM
+	TÆLLE_REGISTER2 EQU 0x31    ; Definér register til at tælle til reset EEPROM
 		
 	#DEFINE BUTTON_CLICKED FLAG,0
 	#DEFINE DATA_READY FLAG,1
+	#DEFINE RESET_TIME D'20'
+	
 ; ******* OPSÆTNING AF PROGRAM POINTERE ***************************************************
     org		0x0000				; Programstart efter et reset
     GOTO	init				; Gå til opsætning
@@ -204,6 +208,11 @@ init
     MOVWF TEMP_ADC_DATA ; Flyt til bank
     CLRW ; Clear arbejdsregistret
     
+    MOVLW RESET_TIME
+    BANKSEL TÆLLE_REGISTER2 ; Gå til bank
+    MOVWF TÆLLE_REGISTER2 ; Flyt til bank
+    CLRW ; Clear arbejdsregistret
+    
     CALL GET_DATA_FROM_EEPROM ; Ved initialisering henter vi lagret data fra EEPROM TODO EEPROM
    
     CALL OPDATER_RPI ; DEN LÆSER 255 FRA EEPROM
@@ -238,6 +247,8 @@ GET_LYSNR
     
     CALL OPDATER_EEPROM ; Opdatér dataen lagret i EEPROM TODO EEPROM
    
+    CALL OPDATER_RPI
+    
     GOTO LYSSTADIE ; Gå til MAIN
     
 ; ------- SERIEL RECIPERING AF DATA FRA RASPBERRY PI ---------------------------------------
@@ -245,7 +256,6 @@ LYSSTADIE
     
     ; Denne del af koden sørger for modtagelse af det ønskede lysstadie fra Raspberry Pi'en
     ; og tjekker ofte, om knappen er blevet trykket på
-    ;CALL CHECK_BUTTON ; Tjek om knappen er blevet trykket TODO BUTTON
     
     CALL CHECK_FOR_DATA_FROM_RPI ; Tjek om RPI'en har sendt et nyt lysstadie som lyskilden skal køre
     
@@ -275,11 +285,13 @@ CHECK_BUTTON
     BTFSS PORTA,2 ; Hvis knappen ikke er trykket
 	GOTO BUTTON_CLEAR ; Returnér    
     
+    CALL CHECK_EEPROM_RESET_1
+	
     BANKSEL FLAG
     BTFSC BUTTON_CLICKED
 	RETURN
 
-    BSF BUTTON_CLICKED ; Sæt flag, at knappen er trykket
+    BSF BUTTON_CLICKED ; Sæt flag, at knappen er trykket	
     
     ; Ellers, så skal lysstadiet ændres til det modsatte, og EEPROM og RPI skal opdateres
     BANKSEL PWM5DCH ; Gå til bank
@@ -290,8 +302,36 @@ CHECK_BUTTON
     GOTO TOGGLE_LYSSTADIE_OFF ; Hvis ikke, så skal den slukkes		    
 
 BUTTON_CLEAR
+    BANKSEL TÆLLE_REGISTER2
+    MOVLW RESET_TIME
+    MOVWF TÆLLE_REGISTER2
+    
     BANKSEL FLAG
     BCF BUTTON_CLICKED ; Ryd flag
+    RETURN
+    
+CHECK_EEPROM_RESET_1
+    BANKSEL TÆLLE_REGISTER1
+    INCF TÆLLE_REGISTER1,F
+    
+    BTFSC STATUS,Z  
+	GOTO CHECK_EEPROM_RESET2
+    RETURN
+    
+CHECK_EEPROM_RESET2
+    
+    BANKSEL TÆLLE_REGISTER2
+    MOVF TÆLLE_REGISTER2,W
+    BANKSEL SEND_DATA ; Gå til bank
+    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
+    
+    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
+    
+    BANKSEL TÆLLE_REGISTER2
+    DECF TÆLLE_REGISTER2,F
+    
+    BTFSC STATUS,Z
+	GOTO RESET_EEPROM
     RETURN
     
 TOGGLE_LYSSTADIE_ON
@@ -344,7 +384,7 @@ CHECK_POTENTIOMETER
     BSF INTCON,PEIE ; Skal sættes
     BCF INTCON,GIE ; Skal cleares
     
-    CALL DELAY
+    ; CALL DELAY
     ; CALL WAIT_FOR_ACQUISITION_TIME ; Wait the required time TODO
     
     ; Start conversion
