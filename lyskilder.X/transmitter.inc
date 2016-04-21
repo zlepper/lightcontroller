@@ -11,6 +11,18 @@
 
 ; ******* HOVEDPROGRAM ********************************************************************
 
+; ------- OPDATÉR RASPBERRY PI MED LYSNR OG LYSSTADIE ------------------------------------
+OPDATER_RPI
+    ; Opdater lysstadie
+    BANKSEL PWM5DCH ; Gå til bank
+    MOVF PWM5DCH,W ; Flyt LED lysstadie til arbejdsregistret
+    BANKSEL SEND_DATA ; Gå til bank
+    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
+    
+    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
+    
+    RETURN ; Returnér
+    
 TRANSMIT_TO_RPI
 ; Vores transmittering af data består af 4 pakker: Start, lysnr, data og stop pakke
     CALL TRANSMITTERSETUP ; Sæt lyskildens microcontroller op til at være transmitter

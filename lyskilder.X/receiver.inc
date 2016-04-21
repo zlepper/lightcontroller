@@ -10,7 +10,6 @@
 ;   og lagre den brugbare data.
 
 ; ******* HOVEDPROGRAM ********************************************************************
-
 CHECK_FOR_DATA_FROM_RPI
     ; Har vi modtaget noget nyt data siden sidst?
     CALL RECEIVERSETUP ; Sæt lyskildens microcontroller op til at være receiver
@@ -78,8 +77,15 @@ CHECK_RECEIVE_STATUS
     ; Tjek om nyt data er klar til at blive modtaget fra Rasperry Pi
     BANKSEL PIR1 ; Gå til bank
     BTFSS PIR1,RCIF ; Tjek flag
-    	GOTO CHECK_RECEIVE_STATUS ; Loop tjekket, indtil den er klar
+    	GOTO CHECK_OTHER ; Gå tilbage til lysstadie
     RETURN ; Returnér når nyt data er klar til at blive modtaget
+    
+CHECK_OTHER
+    CALL CHECK_BUTTON ; Tjek om knappen er blevet trykket TODO BUTTON
+    
+    CALL CHECK_POTENTIOMETER ; Tjek om potentiometeret er blevet ændret på TODO POTENTIOMETER
+    
+    GOTO CHECK_RECEIVE_STATUS
     
 RECEIVERSETUP
 	; Sæt de forskellige bits, som er associeret med "asynchronous reception"
