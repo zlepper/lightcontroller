@@ -5,6 +5,9 @@ var app = express();
 var bodyParser = require("body-parser");
 var portIO = require("./app/controller-action");
 var routes = require("./app/routes/toggles");
+
+// Initialize the automic light changer
+var autotime = require("./app/auto-time");
 // Configure the public directory to be server as static files whenever something is requested from there
 app.use(express.static("public"));
 
@@ -51,3 +54,4 @@ n = 0;
 		} 
 
 }, 5000);*/
+process.stdin.resume();

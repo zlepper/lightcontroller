@@ -88,8 +88,8 @@ var write = function() {
 				}
 				port.drain(function(err) {
 						//setTimeout(function() {
-				//		console.log("Done writing");
-				//		console.log(b);
+						console.log("Done writing");
+						console.log(b);
 						if(err) {
 								console.log(err);
 						}			

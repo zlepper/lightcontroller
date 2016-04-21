@@ -18,6 +18,12 @@
   ],
   "dependencies": {
     "angular-material": "^1.0.5",
-    "angular-ui-router": "ui-router#^0.2.18"
+    "angular-ui-router": "ui-router#^0.2.18",
+    "moment": "^2.13.0",
+    "mdPickers": "^0.7.2"
+  },
+  "resolutions": {
+    "moment": "^2.13.0",
+    "angular": "1.5.5"
   }
 }

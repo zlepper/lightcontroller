@@ -38,9 +38,23 @@ router.put("/switches/:id/:level", function(req, res) {
 	res.sendStatus(200);
 });
 
+router.put("/switches/:id", function(req, res) {
+		console.log("Saving");
+	if(req.body.id != req.params.id) {
+		res.status(400).json({message: "Controller and request route does not match"});
+	}
+	var c = controller.get(req.params.id);
+	c.setPower(req.body.power);
+	c.name = req.body.name;
+	c.points = req.body.points;
+	c.isAuto = req.body.isAuto;
+	res.sendStatus(200);
+});
+
 router.post("/switches/resync", function(req, res) {
 	console.log("Got resync request");
 	controller.resync();	
+	res.sendStatus(201);
 });
 
 

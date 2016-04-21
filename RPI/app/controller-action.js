@@ -4,12 +4,23 @@ var fs = require("fs");
 // Create a list of all the controllers our system knows about
 var controllers = [];
 
+exports.getAllControllers = function() {
+	return controllers;
+}
+
 // Adds a new controller to the list of controllers
 function addController() {
 		var controller = new Controller();
 		controllers.push(controller);
 		return controller;
 }
+
+
+//var c = new Controller();
+//c.id = 0;
+//c.name = "Test controller med lysnr 0";
+//Controller.nextId = 1;
+//controllers.push(c);
 
 // Export the add controller function
 exports.addController = addController;
@@ -98,45 +109,65 @@ exports.getAll = function() {
 }
 
 function setLight(controllerId, level) {
-	var controller = getController(controllerId);
-	if(controller) {
-		controller.level = level;
-	}
+		var controller = getController(controllerId);
+		if(controller) {
+				controller.level = level;
+		} else {
+				console.log("Could not find controller");
+		}
 }
 exports.setLight = setLight
 
 function resync() {
-	assignController(function(controller) {
-		console.log("Resynced");
-	});	
+		assignController(function(controller) {
+				console.log("Resynced");
+		});	
 }
 
+exports.resync = resync;
 
-function saveControllers() {
-	var cs = JSON.stringify(controllers, null, "  ");
-	fs.writeFileSync("controllers.json", cs, "utf8");
-	console.log("Controllers written to file");
+function saveControllers(e, err) {
+		if(err) {
+			console.log(err);
+		}
+		var cs = JSON.stringify(controllers, null, "  ");
+		fs.writeFileSync("controllers.json", cs, "utf8");
+		console.log("Controllers written to file");
+		process.exit(3);
 }
 
 function loadControllers() {
-	var cs = fs.readFileSync("controllers.json", "utf8");
-	var cse = JSON.parse(cs);
-	var biggestId = -1;
-	for(var i = 0; i < cse.length; i++) {
-		var c = cse[i];
-		var ctrl = addController();
-		ctrl.id = c.id;
-		ctrl.level = c.level;
-		ctrl.name = c.name;
-		ctrl.state = c.state;
-		if(c.id > biggestId) {
-			biggestId = c.id;
+		try {
+				var cs = fs.readFileSync("controllers.json", "utf8");
+				var cse = JSON.parse(cs);
+				var biggestId = -1;
+				for(var i = 0; i < cse.length; i++) {
+						var c = cse[i];
+						var ctrl = addController();
+						ctrl.id = c.id;
+						ctrl.level = c.level;
+						ctrl.name = c.name;
+						ctrl.state = c.state;
+						ctrl.points = c.points;
+						ctrl.isAuto = c.isAuto;
+						if(c.id > biggestId) {
+								biggestId = c.id;
+						}
+				}
+				Controller.nextId = biggestId + 1;
+				console.log("Controllers loaded");
 		}
-	}
-	Controller.nextId = biggestId + 1;
-	console.log("Controllers loaded");
+		catch(err) {
+				console.log("Could not load controllers from file");
+		}
 }
 
-process.on('exit', function () {
+loadControllers();
+
+process.on('exit', saveControllers);
+process.on('SIGINT', saveControllers);
+process.on('uncaughtException', function(err) {
+	console.log(err.stack);
 	saveControllers();	
 });
+

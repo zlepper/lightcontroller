@@ -15,16 +15,16 @@
 		<md-toolbar>
 			<div class="md-toolbar-tools">
 				<button class="md-button" value="Opret falsk controller" ng-click="vm.createFakeController()">Opret falsk controller</button>
-				<button class="md-button" value="Forbind nye controllere" ng-click="vm.connectNewControllers()">Opret falsk controller</button>
+				<button class="md-button" value="Forbind nye controllere" ng-click="vm.connectNewControllers()">Forbind nye controllere</button>
 			</div>
 		</md-toolbar>
 		<div id="content" ng-show="vm.controllers.length">
 			<md-list>
 				<md-list-item ng-repeat="controller in vm.controllers" ng-click="vm.showOptions($event, controller)">
 					<p>{{controller.name}}</p>
-					<md-slider drag-end="vm.setPower(controller)" flex ng-model="controller.power" min="0" max="255" aria-label="Lysmængde">
+					<md-slider drag-end="vm.setPower(controller); $event.stopPropagation();" flex ng-click="$event.stopPropagation();" ng-model="controller.power" min="{{vm.minPower}}" max="{{vm.maxPower}}" aria-label="Lysmængde">
 					</md-slider>
-					<button class="md-button" ng-click="vm.toggle(controller)">
+					<button class="md-button" ng-click="vm.toggle(controller); $event.stopPropagation();">
 							<md-icon class="material-icons" ng-style="{'color': controller.state ? vm.getLightColor(controller) : 'black'}">lightbulb_outline</md-icon>
 					</button>
 				</md-list-item>

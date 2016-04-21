@@ -1,4 +1,4 @@
-angular.module("lightcontroller", ["ngMaterial", "ui.router", "ngAnimate", "ngMessages"]).directive('dragEnd', function () {
+angular.module("lightcontroller", ["ngMaterial", "ui.router", "ngAnimate", "ngMessages", "mdPickers"]).directive('dragEnd', function () {
 	return {
 		restrict: 'A',
 		scope: false,

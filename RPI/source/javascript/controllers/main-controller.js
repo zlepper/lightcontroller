@@ -1,6 +1,14 @@
 angular.module("lightcontroller")
     .controller("MainController", ["LightController", "$mdDialog", "$mdMedia", function (lightController, $mdDialog, $mdMedia) {
+			Number.prototype.map = function (in_min, in_max, out_min, out_max) {
+					  return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+			}
+			this.minPower = 5;
+			this.maxPower = 13;
         var cont = this;
+		Number.prototype.powerMap = function() {
+			return Math.round(this.map(cont.minPower, cont.maxPower, 0, 255));
+		}
         var customFullscreen = $mdMedia('xs') || $mdMedia('sm');
         this.controllers = [];
         this.toggle = function (controller) {
@@ -38,7 +46,8 @@ angular.module("lightcontroller")
             }
             controller.state = !controller.state;
         }
-        this.setPower = function (controller) {
+        this.setPower = function (controller, evn) {
+				//evn.stopPropagation();
             resProm = lightController.setPower(controller.id, controller.power);
             controller.awaitingResponse = true;
             resProm.then(function () {
@@ -54,7 +63,7 @@ angular.module("lightcontroller")
             });
         }
         this.getLightColor = function (controller) {
-            var color = "rgb(" + controller.power + "," + controller.power + ",0)";
+            var color = "rgb(" + controller.power.powerMap() + "," + controller.power.powerMap() + ",0)";
             return color;
         }
         var fakeId = 1;
@@ -80,24 +89,29 @@ angular.module("lightcontroller")
             })
         }
         this.connectNewControllers = function () {
+				console.log("HEre");
             var p = lightController.connectNewControllers();
             p.then(function (r) {
                 cont.getControllers();
             });
         }
         this.showOptions = function ($ev, controller) {
-            var useFullScreen = ($mdMedia('sm') || $mdMedia('xs'))  && $scope.customFullscreen;
+            var useFullScreen = ($mdMedia('sm') || $mdMedia('xs'))  && customFullscreen;
             $mdDialog.show({
                 controller: "DialogController",
                 controllerAs: "dialog",
                 templateUrl: "/templates/dialog.html",
                 bindToController: true,
                 locals: {
+					max: cont.maxPower,
+					min: cont.minPower,
                     controller: controller
                 },
                 targetEvent: $ev,
                 fullscreen: useFullScreen
-            })
+            }).then(function(controller) {
+				lightController.save(controller);
+			});
         }
         this.getControllers();
     }])

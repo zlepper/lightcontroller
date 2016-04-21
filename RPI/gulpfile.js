@@ -12,6 +12,7 @@ var gulp = require('gulp'),
     input = {
         sass: [
             bowersource + "angular-material/angular-material.scss",
+			bowersource + "mdPickers/dist/mdPickers.css",
             'source/scss/**/*.scss'
         ],
 
@@ -23,6 +24,8 @@ var gulp = require('gulp'),
             bowersource + "angular-resource/angular-resource.js",
             bowersource + "angular-material/angular-material.js",
             bowersource + "angular-ui-router/release/angular-ui-router.js",
+			bowersource + "moment/moment.js",
+			bowersource + "mdPickers/dist/mdPickers.js",
             "source/javascript/main.js",
             ownScripts
         ]

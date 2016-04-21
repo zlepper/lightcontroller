@@ -9,6 +9,8 @@ function Controller() {
 	this.power = 255;
 	this.name = "Controller " + this.id;
 	this.awaitingResponse = false;
+	this.points = [];
+	this.isAuto = false;
 }
 
 Controller.nextId = 1;

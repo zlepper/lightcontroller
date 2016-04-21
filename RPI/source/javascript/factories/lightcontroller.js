@@ -1,4 +1,3 @@
-(function() {
 	var switchBase = "/api/switches";
 	function LightController($http) {
 		this.toggle = function(controllerNumber) {
@@ -23,6 +22,9 @@
 		this.connectNewControllers = function() {
 			return $http.post(switchBase + "/resync", {});
 		}
+		this.save = function(controller) {
+			return $http.put(switchBase + "/" + controller.id, controller);
+		}
 	};
 
 	function LightControllerFactory($http) {
@@ -30,4 +32,3 @@
 	}
 
 	angular.module("lightcontroller").factory("LightController", ["$http", LightControllerFactory]);
-})();

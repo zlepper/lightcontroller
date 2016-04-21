@@ -1,0 +1,45 @@
+<md-dialog aria-label="Rediger controller"  ng-cloak flex-gt-sm="50">
+<form>
+		<md-toolbar>
+		<div class="md-toolbar-tools">
+				<h2>{{dialog.controller.name}}</h2>
+				<span flex></span>
+
+				<button class="md-button" ng-click="dialog.close()">
+						<md-icon class="material-icons">close</md-icon>
+				</button>
+		</div>
+		</md-toolbar>
+		<md-dialog-content>
+		<div class="md-dialog-content">
+				<div layout-gt-xs="row">
+						<md-input-container class="md-block" flex-gt-xs>
+						<label>Controller navn</label>
+						<input ng-model="dialog.controller.name">
+						</md-input-container>
+				</div>
+				<div>
+				<md-checkbox ng-model="dialog.controller.isAuto" aria-label="Skift tid automatisk">
+					Skift tid automatisk
+				</md-checkbox>
+				</div>
+				<div layout-gt-xs="row" ng-repeat="point in dialog.controller.points">
+						<md-input-container class="md-block" flex-gt-xs>
+						<md-slider ng-model="point.power" min="{{dialog.locals.min}}" max="{{dialog.locals.max}}" aria-label="Lysmængde">
+						</md-slider>
+						</md-input-container>
+						<mdp-time-picker mdp-auto-switch="true" ng-model="point.time"></mdp-time-picker>
+				</div>
+		</div>
+		</md-dialog-content>
+		<md-dialog-actions layout="row">
+		<md-button ng-click="dialog.addPoint()">
+		Tilføj tidspunkt
+		</md-button>
+		<span flex></span>
+		<md-button ng-click="dialog.save()">
+		Gem
+		</md-button>
+		</md-dialog-actions>
+</form>
+</md-dialog>
