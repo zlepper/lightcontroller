@@ -6,9 +6,10 @@
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
 ;   Denne fil er hovedfilen til lyskildernes microcontroller. Den sørger for at lyskilderne
-;   har et LYSNR, den serielle kommunikation til og fra Raspberry Pi'en, omdannelse af data
+;   har et lysnr, den serielle kommunikation til og fra Raspberry Pi'en, omdannelse af data
 ;   til en spænding ved puls-bredde modulation, omdefinering af pins på microcontrolleren
-;   så den kan bruges så effektiv som muligt i et overskueligt kredsløb.
+;   så den kan bruges så effektiv som muligt i et overskueligt kredsløb og sidst men ikke mindst
+;   lagring af data og læsning af data fra EEPROM'en
 
 ; ******* PROCESSOR DEFINITIONER **********************************************************
 	processor	16f18313				;Sets processor
@@ -21,7 +22,7 @@
 	
 	; CONFIG1: RSTOSC skal være HFINT32 for at få 32 MHz
 	__CONFIG _CONFIG1, _FEXTOSC_OFF & _RSTOSC_HFINT32 & _CLKOUTEN_OFF & _CSWEN_ON & _FCMEN_ON
-	; CONFIG2 TODO: PRØV AT SÆTTE PWERTE ON
+	; CONFIG2
 	 __CONFIG _CONFIG2, _MCLRE_ON & _PWRTE_ON & _WDTE_OFF & _LPBOREN_OFF & _BOREN_ON & _BORV_LOW & _PPS1WAY_ON & _STVREN_ON & _DEBUG_OFF
 	; CONFIG3
 	__CONFIG _CONFIG3, _WRT_OFF & _LVP_OFF
@@ -42,20 +43,19 @@
         TÆLLE_REGISTER1 EQU 0x30    ; Definér register til at tælle til reset EEPROM
 	TÆLLE_REGISTER2 EQU 0x31    ; Definér register til at tælle til reset EEPROM
 		
-	#DEFINE BUTTON_CLICKED FLAG,0
-	#DEFINE DATA_READY FLAG,1
-	#DEFINE RESET_TIME D'20'
+	#DEFINE BUTTON_CLICKED FLAG,0 ; Definér dette som et flag for, om knappen er blevet trykket
+	#DEFINE RESET_TIME D'20' ; Definér dette som det tælle registret skal tælle ned fra
 	
 ; ******* OPSÆTNING AF PROGRAM POINTERE ***************************************************
-    org		0x0000				; Programstart efter et reset
-    GOTO	init				; Gå til opsætning
-    org		0x0005				; Første position efter interrupt-vektor
+    org		0x0000		    ; Programstart efter et reset
+    GOTO	init		    ; Gå til opsætning
+    org		0x0005		    ; Første position efter interrupt-vektor
 
 ; ******* INCLUDEREDE FILER ***************************************************************
-    #Include	"delay.inc"			; Tilføjer delay filen
-    #Include	"transmitter.inc"		; Tilføjer Transmitter filen
-    #Include	"receiver.inc"			; Tilføjer Reciever filen
-    #Include	"EEPROM.inc"			; Tilføjer EEPROM filen
+    #Include	"delay.inc"	    ; Tilføjer delay filen
+    #Include	"transmitter.inc"   ; Tilføjer Transmitter filen
+    #Include	"receiver.inc"	    ; Tilføjer Reciever filen
+    #Include	"EEPROM.inc"	    ; Tilføjer EEPROM filen
 	
 ; ******* INITIALISERING AF CONTROLLER *****************************************************
 init
@@ -63,7 +63,7 @@ init
     CLRF LATA	    ; Data latch
     BANKSEL ANSELA  ; Sæt bank til hvor ANSELA befinder sig
     CLRF ANSELA	    ; Digital I/O
-    BSF ANSELA,4    ; Sæt TRISA,4 for ADC-konventering TODO ADC
+    BSF ANSELA,4    ; Sæt TRISA,4 for ADC-konventering
 
 ; ******* PERIPHERAL PIN SELECT - OMDEFINÉR RX OG TX TIL NYE PINS **************************
     ; Krævet for at åbne/lukke for PPS
@@ -103,7 +103,7 @@ init
 ; ******* PINS DEFINERING TIL BLA. SERIEL KOMMUNIKATION ************************************
     BANKSEL TRISA   ; Sæt bank til hvor TRISA befinder sig
     BSF TRISA,2	    ; Sæt op til input fra knap
-    BSF TRISA,4     ; Sæt op til ADC-konvetering fra potentiometer TODO ADC
+    BSF TRISA,4     ; Sæt op til ADC-konvetering fra potentiometer
     BSF TRISA,0	    ; Sæt op til RX (Seriel kommunikation)
     BSF TRISA,1	    ; Sæt op til TX (Seriel komunikation)
     
@@ -133,7 +133,7 @@ init
     BANKSEL PIR1 ; Set bank
     BCF PIR1,TMR2IF
     
-    ; Sæt en timer prescale value til 1
+    ; Sæt timer prescale value til 1
     BANKSEL T2CON ; Set bank
     BCF T2CON,0
     BCF T2CON,1
@@ -142,8 +142,8 @@ init
     BSF T2CON,TMR2ON
     
     BANKSEL PIR1 ; Set bank
-    WAIT_ON_TIMER BTFSS PIR1,TMR2IF
-	GOTO WAIT_ON_TIMER
+    WAIT_ON_TIMER BTFSS PIR1,TMR2IF ; Vent på, at en fuld duty cycle er blevet sendt
+	GOTO WAIT_ON_TIMER ; Loop indtil da
 	
     ; When the TMR2IF flag bit is set: 
     ; Clear the associated TRIS bit(s) to enable the output driver.
@@ -161,7 +161,7 @@ init
     CLRW ; Clear arbejdsregistret
     
     ; Sæt lysnr til lyskilde
-    MOVLW 0x00 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere) TODO
+    MOVLW 0x00 ; Lysnr pakke defineres til at være 0, fra start (Ændres senere)
     BANKSEL LYSNR ; Gå til bank
     MOVWF LYSNR ; Flyt til bank
     CLRW ; Clear arbejdsregistret
@@ -208,20 +208,18 @@ init
     MOVWF TEMP_ADC_DATA ; Flyt til bank
     CLRW ; Clear arbejdsregistret
     
-    MOVLW RESET_TIME
+    MOVLW RESET_TIME ; Flyt reset time ind i tælle registret
     BANKSEL TÆLLE_REGISTER2 ; Gå til bank
     MOVWF TÆLLE_REGISTER2 ; Flyt til bank
     CLRW ; Clear arbejdsregistret
     
-    CALL GET_DATA_FROM_EEPROM ; Ved initialisering henter vi lagret data fra EEPROM TODO EEPROM
-   
-    CALL OPDATER_RPI ; DEN LÆSER 255 FRA EEPROM
+    CALL GET_DATA_FROM_EEPROM ; Ved initialisering henter vi lagret data fra EEPROM
     
     GOTO MAIN ; Gå til MAIN som tager sig af, hvad lysstyringen skal gøre
 
 ; ******* HOVEDPROGRAM **********************************************************************
     
-MAIN
+MAIN ; Main sørger for, at microcontrolleren har et lysnr, før vi går igang med at tjekke for lysstadie
    ; Hvis lyskildens microcontroller ikke har et LYSNR, så skal den have tildelt et
     BANKSEL LYSNR ; Gå til bank
     MOVF LYSNR,W ; Flyt lyskildens LYSNR til W
@@ -231,10 +229,10 @@ MAIN
     
     GOTO LYSSTADIE ; Ellers, så skal den gå til check for data 
     
-; ------- SERIEL TRANSMITTERING AF DATA TIL RASPBERRY PI ---------------------------------------
+; ------- TILDELING AF LYSNR FRA WEBSERVEREN AF -------------------------------------------
 GET_LYSNR
 
-    CALL CHECK_FOR_DATA_FROM_RPI ; Modtag  et lysnr'et fra RPI'en
+    CALL CHECK_FOR_DATA_FROM_RPI ; Modtag et lysnr'et fra RPI'en
     
     BANKSEL MODTAGET_DATA ; Gå til bank
     MOVF MODTAGET_DATA,W ; Flyt det modtagede data til arbejdsregistret
@@ -245,15 +243,12 @@ GET_LYSNR
     BANKSEL MODTAGET_DATA ; Gå til bank
     CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er anvendt
     
-    CALL OPDATER_EEPROM ; Opdatér dataen lagret i EEPROM TODO EEPROM
-   
-    CALL OPDATER_RPI
+    CALL OPDATER_EEPROM ; Opdatér dataen lagret i EEPROM
     
     GOTO LYSSTADIE ; Gå til MAIN
     
 ; ------- SERIEL RECIPERING AF DATA FRA RASPBERRY PI ---------------------------------------
 LYSSTADIE
-    
     ; Denne del af koden sørger for modtagelse af det ønskede lysstadie fra Raspberry Pi'en
     ; og tjekker ofte, om knappen er blevet trykket på
     
@@ -268,28 +263,28 @@ LYSSTADIE
     BANKSEL MODTAGET_DATA ; Gå til bank
     CLRF MODTAGET_DATA ; Vi rydder den modtagede data, da det er sendt ud til lyset
     
-    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie TODO EEPROM
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
     
     GOTO LYSSTADIE ; Bliv ved med at tjekke for nyt lysstadie
 
 ; ------- TJEK OM DER ER BLEVET TRYKKET PÅ KNAPPEN ---------------------------------------
     
 CHECK_BUTTON
-    BANKSEL PORTA
+    BANKSEL PORTA ; Gå til bank
     BTFSS PORTA,2 ; Hvis knappen ikke er trykket
 	GOTO BUTTON_CLEAR ; Returnér
 	
-    CALL DELAY
+    CALL DELAY ; Indsæt et delay, og tjek igen på grund af præl
     
-    BANKSEL PORTA
+    BANKSEL PORTA ; Gå til bank
     BTFSS PORTA,2 ; Hvis knappen ikke er trykket
 	GOTO BUTTON_CLEAR ; Returnér    
     
-    CALL CHECK_EEPROM_RESET_1
+    CALL CHECK_EEPROM_RESET_1 ; Hvis brugeren holder knappen nede i ca. 5 sekunder, så skal EEPROMen nulstilles
 	
-    BANKSEL FLAG
-    BTFSC BUTTON_CLICKED
-	RETURN
+    BANKSEL FLAG ; Gå til bank
+    BTFSC BUTTON_CLICKED ; Hvis knappen er sat
+	RETURN ; Returnér
 
     BSF BUTTON_CLICKED ; Sæt flag, at knappen er trykket	
     
@@ -302,46 +297,39 @@ CHECK_BUTTON
     GOTO TOGGLE_LYSSTADIE_OFF ; Hvis ikke, så skal den slukkes		    
 
 BUTTON_CLEAR
-    BANKSEL TÆLLE_REGISTER2
-    MOVLW RESET_TIME
-    MOVWF TÆLLE_REGISTER2
+    ; Når knappen bliver sluppet, skal den gøre nulstille tælleregistret og flaget
+    BANKSEL TÆLLE_REGISTER2 ; Gå til bank
+    MOVLW RESET_TIME ; Flyt reset time ind i arbejdsregistret
+    MOVWF TÆLLE_REGISTER2 ; FLyt til registret
     
-    BANKSEL FLAG
+    BANKSEL FLAG ; Gå til bank
     BCF BUTTON_CLICKED ; Ryd flag
-    RETURN
+    RETURN ; Returnér
     
-CHECK_EEPROM_RESET_1
-    BANKSEL TÆLLE_REGISTER1
-    INCF TÆLLE_REGISTER1,F
+CHECK_EEPROM_RESET_1 ; Første tælle register
+    BANKSEL TÆLLE_REGISTER1 ; Gå til bank
+    INCF TÆLLE_REGISTER1,F ; Addér 1 til tælle registret (Fra 0 til 255)
     
-    BTFSC STATUS,Z  
-	GOTO CHECK_EEPROM_RESET2
-    RETURN
+    BTFSC STATUS,Z ; Tjek om den er gået over 255 
+	GOTO CHECK_EEPROM_RESET2 ; Hvis den er, så skal den gå til det andet tælle register
+    RETURN ; Hvis ikke, så skal den returnere
     
-CHECK_EEPROM_RESET2
+CHECK_EEPROM_RESET2 ; Andet tælle register
+    BANKSEL TÆLLE_REGISTER2 ; Gå til bank
+    DECF TÆLLE_REGISTER2,F ; Dekrementér med 1 i tælleregistret, hvor der er indsat 20. Dette giver en tid på ca. 5 sekunder
     
-    BANKSEL TÆLLE_REGISTER2
-    MOVF TÆLLE_REGISTER2,W
-    BANKSEL SEND_DATA ; Gå til bank
-    MOVWF SEND_DATA ; Flyt det til SEND_DATA registret for at sende dataen til RPI'en
-    
-    CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
-    
-    BANKSEL TÆLLE_REGISTER2
-    DECF TÆLLE_REGISTER2,F
-    
-    BTFSC STATUS,Z
-	GOTO RESET_EEPROM
-    RETURN
+    BTFSC STATUS,Z ; Hvis den er kommet under nul, så har brugeren holdt knappen nede i ca. 5 sekunder
+	GOTO RESET_EEPROM ; Derfor vil brugeren gerne have nulstillet EEPROMen
+    RETURN ; Hvis ikke, så skal der bare returneres
     
 TOGGLE_LYSSTADIE_ON
     MOVLW 0xFF ; Tænd LED på fuld styrke
     BANKSEL PWM5DCH ; Gå til bank
     MOVWF PWM5DCH ; Tænd for LED
     
-    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie TODO EEPROM
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
     
-    CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO RPI
+    CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie
     
     GOTO LYSSTADIE ; Gå til tjek for nyt lysstadie
     
@@ -350,12 +338,13 @@ TOGGLE_LYSSTADIE_OFF
     BANKSEL PWM5DCH ; Gå til bank
     MOVWF PWM5DCH ; Flyt ud på LED
     
-    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie TODO EEPROM
+    CALL OPDATER_EEPROM ; Opdatér EEPROM med det nyeste lysstadie
     
-    CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie TODO RPI
+    CALL OPDATER_RPI ; Opdatér RPI med det nyeste lysstadie
     
     GOTO LYSSTADIE ; Gå til tjek for nyt lysstadie
 	
+; ------- TJEK OM POTENTIOMETERET ER BLEVET DREJET (OBS. DETTE ER IKKE FÆRDIGGJORT) --------------------------
 CHECK_POTENTIOMETER
     ; Select ADC input channel
     BANKSEL ADCON0 ; Gå til bank
@@ -384,8 +373,7 @@ CHECK_POTENTIOMETER
     BSF INTCON,PEIE ; Skal sættes
     BCF INTCON,GIE ; Skal cleares
     
-    ; CALL DELAY
-    ; CALL WAIT_FOR_ACQUISITION_TIME ; Wait the required time TODO
+    ; CALL WAIT_FOR_ACQUISITION_TIME ; Wait the required time
     
     ; Start conversion
     BANKSEL ADCON0 ; Gå til bank
@@ -435,7 +423,7 @@ ADC_CHANGE_LYSSTADIE
     BANKSEL PIR1 ; Gå til bank
     BCF PIR1,ADIF ; Skal ryddes i software
     
-    GOTO LYSSTADIE
+    GOTO LYSSTADIE ; Gå tilbage til lysstadie tjek
 
 ; ******* PROGRAM AFSLUTTET ***************************************************************		
     END ; Her slutter programmet

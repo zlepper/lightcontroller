@@ -22,7 +22,8 @@ OPDATER_RPI
     CALL TRANSMIT_TO_RPI ; Kald transmissions koden, som sørger for at 4 pakker bliver sendt afsted: Start, lysnr, data og stop pakken
     
     RETURN ; Returnér
-    
+
+; ------- SERIEL TRANSMITTERING AF DATA TIL RASPBERRY PI ---------------------------------------
 TRANSMIT_TO_RPI
 ; Vores transmittering af data består af 4 pakker: Start, lysnr, data og stop pakke
     CALL TRANSMITTERSETUP ; Sæt lyskildens microcontroller op til at være transmitter
@@ -67,6 +68,8 @@ CHECK_TRANSMIT_STATUS
 	GOTO CHECK_TRANSMIT_STATUS ; Vent på at den er færdig
    RETURN ; Returner når den er klar igen    
 
+; ------- OPSÆTNING AF MICROCONTROLLER TIL TRANSMITTER ---------------------------------------
+   
 TRANSMITTERSETUP
 ; Start med at sæt de forskellige bits, som er associeret med "asynchronous transmission"
 	

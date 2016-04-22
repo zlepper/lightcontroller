@@ -5,7 +5,7 @@
 
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
-;   Dette program sørger for, at der kan blive skrevet til EEPROM fra hovedprogrammet af
+;   Denne fil sørger for, at der kan blive skrevet til / læst fra EEPROM
 	
 ; ******* HOVEDPROGRAM ********************************************************************
 
@@ -28,10 +28,6 @@ EEPROM_WRITE
     MOVF EEPROM_ADRESSE,W ; Flyt de mindst betydelige bits i adressen til EEPROM til dette register
     BANKSEL NVMADRL ; Gå til bank
     MOVWF NVMADRL ; til NVMADRL
-    
-;    BANKSEL NVMDATH ; Gå til bank TODO 
-;    MOVLW 0x00 ; Flyt de mest betydelige bits i dataen
-;    MOVWF NVMDATH ; til NVMDATH
     
     ; HER SÆTTES DATAEN SOM SKAL I EEPROM
     BANKSEL EEPROM_DATA
@@ -68,7 +64,7 @@ EEPROM_WRITE
     
 EEPROM_READ
     ; Set the NVMREGS and WREN bits of the NVMCON1 register
-    BANKSEL NVMCON1
+    BANKSEL NVMCON1 ; Gå til bank
     BSF NVMCON1,NVMREGS
     
     ; Sæt adressen til EEPROM
@@ -111,14 +107,14 @@ GET_DATA_FROM_EEPROM
     
     CALL EEPROM_READ ; Hent dataen på overstående adresse
     
-    BANKSEL EEPROM_DATA
-    MOVF EEPROM_DATA,W
+    BANKSEL EEPROM_DATA ; Gå til bank
+    MOVF EEPROM_DATA,W ; Flyt dataen ud i arbejdsregistret
 
     BANKSEL LYSNR ; Gå til bank
     MOVWF LYSNR ; Flyt dataen fra EEPRROM til LYSNR register
     
-    BANKSEL EEPROM_DATA
-    CLRF EEPROM_DATA
+    BANKSEL EEPROM_DATA ; Gå til bank
+    CLRF EEPROM_DATA ; Slet den modtagede data, da vi er færdig med at bruge den
     
     ; Hent lysstadie fra EEPROM
     MOVLW 0x02 ; Gå til adressen, hvor LYSNR'eret befinder sig
@@ -127,18 +123,17 @@ GET_DATA_FROM_EEPROM
     
     CALL EEPROM_READ ; Hent dataen på overstående adresse
     
-    BANKSEL EEPROM_DATA
-    MOVF EEPROM_DATA,W
+    BANKSEL EEPROM_DATA ; Gå til bank
+    MOVF EEPROM_DATA,W ; Flyt dataen ud i arbejdsregistret
 
     BANKSEL PWM5DCH ; Gå til bank
     MOVWF PWM5DCH ; Flyt dataen ud på LED ved hjælp af Pulse-bredde modulation
-    BANKSEL EEPROM_DATA
-    CLRF EEPROM_DATA
+    BANKSEL EEPROM_DATA ; Gå til bank
+    CLRF EEPROM_DATA ; Slet den modtagede data, da vi er færdig med at bruge den
     
     RETURN ; Returnér
     
 ; ------- OPDATER DATAEN I EEPROM  --------------------------------------------------------
-    
 OPDATER_EEPROM
     ; Opdater LYSNR
     MOVLW 0x01 ; Flyt dataen til arbejdsregistret
@@ -167,21 +162,22 @@ OPDATER_EEPROM
     CALL EEPROM_WRITE ; Hent dataen på overstående adresse
     
     RETURN ; Returnér
-    
+  
+; ------- RESET DATAEN I EEPROM  --------------------------------------------------------
 RESET_EEPROM
-    ; Opdater LYSNR
     
+    ; Opdater LYSNR
     MOVLW 0x01 ; Flyt dataen til arbejdsregistret
     BANKSEL EEPROM_ADRESSE ; Gå til bank
     MOVWF EEPROM_ADRESSE ; Lagrer dataen i registret
     
-    MOVLW 0x00
+    MOVLW 0x00 ; Ryd dataen, ved blot at sætte det til nul
     BANKSEL EEPROM_DATA ; Gå til bank
     MOVWF EEPROM_DATA ; Lagrer dataen i registret
     
     CALL EEPROM_WRITE ; Hent dataen på overstående adresse
     
-    MOVLW RESET_TIME
+    MOVLW RESET_TIME ; Nulstil tælle registret
     BANKSEL TÆLLE_REGISTER2 ; Gå til bank
     MOVWF TÆLLE_REGISTER2 ; Flyt til bank
     

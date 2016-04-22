@@ -6,6 +6,7 @@
 ; ****** BESKRIVELSE **********************************************************************
 ;   beskrivelse:
 ;   Dette program giver et delay på 1 millisekund til brug i hovedprogrammet.
+    
 ; ****** DEFINERING AF REGISTRE ***********************************************************
     Delay1 EQU 0xFF
     Delay2 EQU 0xFE
@@ -14,11 +15,12 @@
 DELAY ; Delay funktion
  
  ; -------  Start på ét millisekund delay rutine ------------------------------------------
-    MOVLW	h'95' ; Tidsforsinkelse beregnet ved fosc på 8 MHz			
+    MOVLW	h'95' ; Tidsforsinkelse beregnet ved fosc på 32 MHz			
     MOVWF	Delay1 ; Sættes til den mindst betydende byte
-    MOVLW	h'F5' ; Tidsforsinkelse beregnet ved fosc på 8 MHz		
+    MOVLW	h'F5' ; Tidsforsinkelse beregnet ved fosc på 32 MHz		
     MOVWF	Delay2 ; Sættes til den mest betydende byte
-; Udfør delay'et
+    
+; Udfør delay'et   
     BANKSEL Delay1
 LOOP1	INCFSZ	Delay1,F 
 	GOTO	LOOP1
