@@ -4,6 +4,7 @@ Et system til at fjernstyre lamper.
 ## Links
 * [Video af system der kører](https://www.youtube.com/watch?v=_6I2q3vBJ9)
 * [Raspberry Pi](https://www.raspberrypi.org/)
+* [Microchip Forum opslag](http://www.microchip.com/forums/m925064.aspx)
 
 ### Afhængigheder
 * [node-serialport](https://github.com/voodootikigod/node-serialport)
