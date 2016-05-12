@@ -2,7 +2,7 @@
 Et system til at fjernstyre lamper.
 
 ## Links
-* [Video af system der kører](https://www.youtube.com/watch?v=_6I2q3vBJ9)
+* [Video af system der kører](https://youtu.be/_6I2q3vBJ9M)
 * [Raspberry Pi](https://www.raspberrypi.org/)
 * [Microchip Forum opslag](http://www.microchip.com/forums/m925064.aspx)
 
